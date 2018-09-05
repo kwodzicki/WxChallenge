@@ -43,25 +43,34 @@ def checkURL(url):
 
 ################################################################################
 def nestedDictSort( input ):
-  try:
-    for k, v in input.iteritems():
-      if isinstance(v, dict):
-        nestedDictSort( v );
-      else:
-        input[k] = [x for _,x in sorted(zip(input['date'], v))];
-  except:
-    for k, v in input.items():
-      if isinstance(v, dict):
-        nestedDictSort( v );
-      else:
-        input[k] = [x for _,x in sorted(zip(input['date'], v))];
-  return input
+  '''
+  Function to sort lists at the bottom of nested dictionaries
+  '''
+  try:                                                                          # Try to (for python2)
+    for k, v in input.iteritems():                                              # Iterate over the key, value pairs in the input dictionary
+      if isinstance(v, dict):                                                   # If the value is a dictionary instance
+        nestedDictSort( v );                                                    # Call the function again on v
+      else:                                                                     # Else, reached the bottom of the nesting
+        input[k] = [x for _,x in sorted(zip(input['date'], v))];                # Sort the list based on the 'date' key that (should) be in the dictionary
+  except:                                                                       # On exception (python3)
+    for k, v in input.items():                                                  # Iterate over the key, value pairs in the input dictionary
+      if isinstance(v, dict):                                                   # If the value is a dictionary instance
+        nestedDictSort( v );                                                    # Call the function again on v
+      else:                                                                     # Else, reached the bottom of the nesting
+        input[k] = [x for _,x in sorted(zip(input['date'], v))];                # Sort the list based on the 'date' key that (should) be in the dictionary
+  return input                                                                  # Return the dictionary
 
+
+################################################################################
 def padReshape( input ):
-  input = np.array(input);
-  if (input.size % 8) != 0:
-    input = np.pad(input, (0, 8-(input.size % 8),), 'constant')
-  return np.reshape( input, (8, input.size//8,), order='f' );
+  '''
+  Function to pad and reshape data arrays so that there are 8 rows by
+  n cities for the forecasts
+  '''
+  input = np.array(input);                                                      # Ensure that input is a numpy array
+  if (input.size % 8) != 0:                                                     # If the input array does NOT have a length that is a multiple of 8
+    input = np.pad(input, (0, 8-(input.size % 8),), 'constant');                # Pad the end of the array so that it IS a multiple of 8
+  return np.reshape( input, (8, input.size//8,), order='f' );                   # Reshape into an (8, ncity) array in fortran order
 
 def scoring( fcs, verbose = False ):
   '''
@@ -79,8 +88,14 @@ def scoring( fcs, verbose = False ):
     climo = np.array( fcs['xxx'][8]['CLIMO_']['err_total'] );                   # Use the climo
   else:                                                                         # Else
     climo = None;                                                               # Set climo to None;
+  if climo: climo = padReshape( climo );                                        # If climo is valid, pad and reshape the climatology
+
+  if 'CONSEN' in fcs['xxx'][9]:                                                 # If national consensus is present
+    ntl_consen = np.array( fcs['xxx'][9]['CONSEN']['cum_err_total'] );          # Set ntl_consen to the national consensus cumulative error
+  else:                                                                         # Else;
+    ntl_consen = None;                                                          # Set ntl_consen to None;
+  if ntl_consen: ntl_consen = padReshape( ntl_consen );                         # If ntl_consen is valid, pad and reshape the national consensus
   
-  climo = padReshape( climo );                                                  # Pad and reshape the climatology
   first = True;
   for sch in fcs:                                                               # Iterate over all schools in the fcs dictionary
     if sch == 'xxx': continue;                                                  # Skip xxx school

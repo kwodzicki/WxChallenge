@@ -1,5 +1,4 @@
-import sqlite3;
-
+import sqlite3, os;
 # Handle both Python2 and Python3
 try:
   from utils import updateSchedule, nestedDictSort;
@@ -8,11 +7,15 @@ except:
   from .utils import updateSchedule, nestedDictSort;
   from . import data as WxData;
 
+_dir = os.path.dirname(os.path.abspath(__file__));
+_sql_file = os.path.join(_dir, 'WxChall.sqlite');
+
 class WxChall_SQLite( object ):
   ##############################################################################
-  def __init__(self, file):
-    self.db     = sqlite3.connect( file, detect_types=sqlite3.PARSE_DECLTYPES );
-    self.cursor = self.db.cursor();
+  def __init__(self, file = _sql_file):
+    self.sqlFile = file;
+    self.db      = sqlite3.connect( self.sqlFile, detect_types=sqlite3.PARSE_DECLTYPES );
+    self.cursor  = self.db.cursor();
     self.__createTables();
   ##############################################################################
   def add_forecasts(self, forecasts):
