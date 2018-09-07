@@ -1,13 +1,14 @@
 import sqlite3, os;
 # Handle both Python2 and Python3
 try:
-  from utils import updateSchedule, nestedDictSort;
+  from utils import updateSchedule, nestedDictSort, unique_cols;
   import data as WxData;
   from WxForecast import forecaster, forecasts;
 except:
-  from .utils import updateSchedule, nestedDictSort;
+  from .utils import updateSchedule, nestedDictSort, unique_cols;
   from . import data as WxData;
   from .WxForecast import forecaster, forecasts;
+from pandas import DataFrame;
 
 _dir = os.path.dirname(os.path.abspath(__file__));
 _sql_file = os.path.join(_dir, 'WxChall.sql');
@@ -48,63 +49,70 @@ class WxChall_SQLite( object ):
                   all forecasts for this semester/year are returned.
       models   : Default to True: gets category 8, set to False to NOT get data
     '''
-    vars, vals = [], [];
-    if name is not None:
-      vars.append('name');
-      vals.append(name);
-    if school is not None:
-      vars.append('school')
-      vals.append(school);
-    if models:
-      vars.append('school')
-      vals.append('xxx');
-    if category is not None:
-      vars.append('category')
-      vals.append(category);
-    if semYear is not None:
-      vars.append('semester')
-      vals.append(semYear[0].lower());
-      vars.append('year')
-      vals.append(semYear[1]);
+    vars, vals = [], [];                                                        # Initialize lists for var names and values to search by in the SQL table
+    if name is not None:                                                        # If name is NOT None
+      if type(name) is not list and type(name) is not tuple:                    # Ensure that name is type list; checking if not list and not tuple
+        name = [name];    
+      for n in name:                                                            # Iterate over all values in name
+        vars.append('name');                                                    # Append 'name' string to vars list
+        vals.append(n);                                                         # Append input name to vals list
+    if school is not None:                                                      # If school is NOT None;
+      if type(school) is not list and type(school) is not tuple:                # Ensure that school is type list; checking if not list and not tuple
+        school = [school];
+      for s in school:                                                          # Iterate over all values in school
+        vars.append('school');                                                  # Append 'school' string to vars list
+        vals.append(s);                                                         # Append input school to vals list
+      if models:                                                                # If models is True
+        vars.append('school');                                                  # Append 'school' string to vars list
+        vals.append('xxx');                                                     # Append 'xxx' to vals list
+    if category is not None:                                                    # If category is NOT None
+      if type(category) is not list and type(category) is not tuple:            # Ensure that category is type list; checking if not list and not tuple
+        category = [category];
+      for c in category:                                                        # Iterate over all values in category
+        vars.append('category');                                                # Append 'category' string to vars list
+        vals.append(c);                                                         # Append input category to vals list
+    if semYear is not None:                                                     # If semYear is NOT None
+      if type(semYear[0]) is not list and type(semYear[0]) is not tuple:        # Because semYear IS a tuple or list because they are paired, make certain that zeroth element is NOT a list OR tuple. If it is, then already multiple values
+        semYear = [semYear];                                                    # Convert to list
+      for sy in semYear:                                                        # Iterate over all values in semYear
+        vars.append('semester');                                                # Append 'semester' string to vars list
+        vals.append(sy[0]);                                                     # Append input semester to vals list
+        vars.append('year');                                                    # Append 'year' string to vars list
+        vals.append(sy[1]);                                                     # Append input year to vals list
     
     
-    if len(vars) == 0:
-      cmd = 'SELECT * FROM forecasts';
-    else:
-      whr = self.__buildWhere( vars );
-      cmd = 'SELECT * FROM forecasts {}'.format( whr );
-    print(cmd)
-    self.cursor.execute(cmd, vals);
-    fcs = self.cursor.fetchall();
-    out = [];
-    for fc in fcs:
-      for i in range(len(fc)):
-        if WxData.forecastCols[i]['name'] == 'name':
-          name   = fc[i];  # Name
-        elif WxData.forecastCols[i]['name'] == 'school':
-          school = fc[i];  # School
-        elif WxData.forecastCols[i]['name'] == 'category':
-          categ  = fc[i];  # Category
-        elif WxData.forecastCols[i]['name'] == 'semester':
-          semes  = fc[i]; # semester
-        elif WxData.forecastCols[i]['name'] == 'year':
-          year   = fc[i]; # Year 
-      if len(out) == 0:
-        out.append( forecaster(name, categ, school, semes, year) );
-        out[0].add_forecast( fc );
-      else:
-        exist = False
-        for i in range( len(out) ):
-          if out[i].exists(name, categ, school, semes, year):
-            exist = True;
-            break;
-        if exist: 
-          if not out[i].add_forecast( fc ): print('failed to add forecast!');
-        else:
-          out.append( forecaster(name, categ, school, semes, year) );
-          if not out[-1].add_forecast( fc ): print('failed to add forecast!');
-    return sorted(out, key = lambda x: x.name);
-#     return forecasts(out);
+    if len(vars) == 0:                                                          # If the length of vars is zero
+      cmd = 'SELECT * FROM forecasts';                                          # Set the command to select all forecasts
+    else:                                                                       # Else,
+      whr = self.__buildWhere( vars );                                          # Use the private method to build a where statement for the command
+      cmd = 'SELECT * FROM forecasts {}'.format( whr );                         # Set command with where statment
+    self.cursor.execute(cmd, vals);                                             # Execute the command
+    fcs = DataFrame( self.cursor.fetchall(), 
+      columns = [i['name'] for i in WxData.forecastCols]
+    );                                                                          # Fetch all the information from the SQL table and convert it to a pandas DataFrame using the forecastCols column names
+    fcs = fcs.set_index('date');                                                # Set the date column to be the index values
+    out, uColNames = [], [];                                                    # Initialize output list and list that will contain column names to sort for unique forecasters
+    for i in WxData.forecastCols:                                               # Iterate over all column names in forecastCols
+      if not i['pandas_col'] and not i['pandas_ind']:                           # If the name is NOT a pandas_col name and NOT a pandas_ind name
+        uColNames.append( i['name'] );                                          # Append it to the uColNames
+    ucols = unique_cols( fcs[ uColNames ].values );                             # Get list of all unique (name, category, school, semester, year) combinations
+    for col in ucols:                                                           # Iterate over unique forecaster ids
+      vals = fcs.loc[
+        (fcs.name     == col[0]) & (fcs.school   == col[1]) & \
+        (fcs.category == col[2]) & (fcs.semester == col[3]) & \
+        (fcs.year     == col[4]) 
+      ];                                                                        # Get rows form the main table where the forecaster is unique
+      tmp = forecaster( data = vals.drop( uColNames, axis=1 ),
+        name     = col[0], 
+        school   = col[1], 
+        category = col[2], 
+        semester = col[3], 
+        year     = col[4]
+      );                                                                        # Create new forecaster instance using the vals for the unique forecaster making sure to drop all the uColName columns
+      out.append( tmp );                                                        # Append the new forecaster instance to the out list
+    return sorted(out, key=lambda k: k.name) 
+#     return out
+
   ##############################################################################
   def __get_forecasts(self, name = None, school = None, category = None, semYear = None):
     '''

@@ -63,6 +63,18 @@ def nestedDictSort( input ):
         input[k] = [x for _,x in sorted(zip(input['date'], v))];                # Sort the list based on the 'date' key that (should) be in the dictionary
   return input                                                                  # Return the dictionary
 
+################################################################################
+def unique_cols( input ):
+  '''
+  Function to get unique values from nested list of values
+  '''
+  out, seen = [], set();                                                        # Initialize out list and seen set
+  seen_add = seen.add;                                                          # Set seen_add to add method of seen set; supposed to be faster
+  types = [type(i) for i in input[0]];                                          # Get type of each 'column' in the input 
+  for i in input:                                                               # Iterate over all lists in the input list
+    tag = ':'.join( [str(j) for j in i] );                                      # Convert all values to string and join on colon
+    if not (tag in seen or seen_add(tag)): out.append(tag);                     # If the value is NOT in seen set, then append to out
+  return [ [t(j) for t, j in zip(types, i.split(':'))] for i in out];           # Split joined strings and convert back to original type and return result
 
 ################################################################################
 def padReshape( input ):

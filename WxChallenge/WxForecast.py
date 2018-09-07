@@ -2,9 +2,9 @@
 try:
   from data import forecastCols as cols;
 except:
-  from .data import forecastCols as cols
-
-from pandas import DataFrame;
+  from .data import forecastCols as cols;
+import pandas;
+import numpy as np;
 ################################################################################
 ################################################################################
 ################################################################################
@@ -58,19 +58,30 @@ class forecasts( object ):
 ################################################################################
 ################################################################################
 ################################################################################
-class forecaster( object ):
-  def __init__(self, name, category, school, semester, year):
+class forecaster( pandas.DataFrame ):
+  def __init__(self, data = None, index = None, columns = None, dtype = None, copy = False,
+    name = None, school = None, category = None, semester = None, year = None):
+
+    pandas.DataFrame.__init__(self, 
+      data    = data, 
+      index   = index,  
+      columns = [i['name'] for i in cols if i['pandas_col']] if columns is None else columns,
+      dtype   = dtype,
+      copy    = copy
+    );
+
     self.name      = name;
     self.category  = category;
     self.school    = school;
     self.semester  = semester;
     self.year      = year;
+    self.grades    = None;
     self.is_model  = category == 8;
     self.is_consen = category == 9;
-    self.nforecast = 0;
-    for i in range(len(cols)):                                                  # Iterate over forecast data column names
-      if cols[i]['name'] == 'date': self.__dateid = i;                          # Locate the date column
-      if not hasattr(self, cols[i]['name']): setattr(self, cols[i]['name'], []);# Initialize attribute with forecast date column name as empty list
+    
+#     for i in range(len(cols)):                                                  # Iterate over forecast data column names
+#       if cols[i]['name'] == 'date': self.__dateid = i;                          # Locate the date column
+#       if not hasattr(self, cols[i]['name']): setattr(self, cols[i]['name'], []);# Initialize attribute with forecast date column name as empty list
     
   ##############################################################################
   def add_forecast(self, forecast_data):
@@ -87,20 +98,84 @@ class forecaster( object ):
     if len(forecast_data) != len(cols): 
       raise Exception('Data is not the correct length!');                       # Raise exception if data is not correct length
     if not self.__check_forecast(forecast_data): return False;                  # If forecast is NOT for the forecaster represented by this class, return False
-    if self.nforecast == 0:                                                     # If there are no forecasts in the class yet
-      self.__insert_data(0, forecast_data);                                     # Add the forecast data to the appropriate attributes
-    elif forecast_data[self.__dateid] < self.__dict__['date'][0]:               # If the date of the forecast is less than the first date in the list of forecasts
-      self.__insert_data(0, forecast_data);                                     # Add the forecast data to the appropriate attributes
-    elif forecast_data[self.__dateid] > self.__dict__['date'][-1]:              # If the date of the forecast is greater than the last date in the list of forecasts
-      self.__insert_data(self.nforecast, forecast_data);                        # Add the forecast data to the appropriate attributes
-    else:                                                                       # Else, data goes somewhere in the middle
-      dates = getattr(self, 'date');                                            # Get the date list
-      for id in range( self.nforecast-1 ):                                      # Iterate over all the forecasts
-        if dates[id] < forecast_data[self.__dateid] < dates[id+1]: break;       # If the date at i is less than the current date, and the date at i+1 is greater than the current date, break the loop
-      id += 1;                                                                  # Increment id by one (1)
-      self.__insert_data(id, forecast_data);                                    # Add the forecast data to the appropriate attributes
-    self.nforecast += 1;                                                        # Increment the number of forecasts by one (1)
+    data = {};
+    for i in range( len(forecast_data) ):                                       # Iterate over all columns
+      if cols[i]['name'] == 'date': name = forecast_data[i];
+      if cols[i]['pandas_col']: data[ cols[i]['name'] ] = forecast_data[i];
+    self.loc[ name ] = data;
+    self.sort_index(inplace=True);
     return True;                                                                # Return True
+  ##############################################################################
+  def calc_grade(self, climatology = None, sch_consensus = None, ntnl_consensus = None, verbose = False):
+    '''
+    Purpose:
+       Method for computing grade for forecaster.
+    Inputs:
+       None.
+    Keywords:
+       climatology    : Single, or list of forecaster instance for a climatology(ies)
+       sch_consensus  : Forecaster instance for school consensus
+       ntnl_consensus : Forecaster instance for national consensus
+    '''
+    climo, sch_con, ntl_con = 0.0, 0.0, 0.0;                                    # Initialize climo value to zero (0)
+    self.grades = pandas.DataFrame(
+      columns=['Days', 'Absence', 'Climo', 'Consen. School', 'Consen. Ntnl', 'Total']
+    );
+
+    if verbose:
+      head_FMT = '{:12}|{:^21}|{:^21}|\n{:5}| {:^4} |{:^10}|{:^10}|{:^10}|{:^10}|{:^10}';
+      row_FMT  = '{:5}| {:4} |{:9.2f} |{:9.2f} |{:9.2f} |{:9.2f} |{:9.2f}';
+      fmt      = 'Name: {}    School: {}   Semester: {} {}'
+      line     = ''.join( ['-'] * 68 )
+      if self.is_model: 
+        fmt += ' (model)'
+      elif self.is_consen:
+        fmt += ' (consensus)'
+      print( fmt.format(self.name, self.school, self.semester, self.year) );
+      print( head_FMT.format('','Deductions','Bonus','ID', 'Days', 'Absence','Climo','School','National','Total') )
+      print( line );
+
+    scores = [];
+    for id in self['identifier'].unique():                                      # Iterate over the unique station identifiers
+      vals    = self.loc[ self['identifier'] == id ];                           # Locate all the rows with the identifier
+      numDays = len(vals);
+      if numDays > 0:
+        miss    = vals['abs'].values != 0;                                      # Array of boolean values to check absence from game
+        abse    = -np.clip(miss.sum()-2, 0, None)*14.286;                       # Compute absence deductions
+        err     = vals.loc[ vals['day'] == numDays ];                           # Get row for the last day of the contest at given city
+        err     = err['cum_err_total'].values[0];                               # Get cumulative error value
+        if climatology is not None:                                             # If climatology is not None
+          climo_err = [];                                                       # Initialize climo_err as a list
+          if type(climatology) is not list and type(climatology) is not tuple:  # If climatology is NOT list and it is NOT tuple
+            climatology = [climatology];                                        # Convert it to a list
+          for cli in climatology:                                               # Iterate over DataFrames in the climatology list
+            tmp = cli.loc[ cli['identifier'] == id ];                           # Locate all values for the station
+            if len(tmp) > 0: climo_err.append( tmp['err_total'].values );       # If values are found above, then
+          tmp = np.array(climo_err).max(axis=0) < vals['err_total'].values;     # Compute max over the two climatologies
+          climo = -sum(tmp & (miss == False)) * 6;                              # Compute climatology deductions
+        if sch_consensus is not None:                                           # If sch_consensus is not None
+           tmp = sch_consensus.loc[ sch_consensus['identifier'] == id ];        # Locate all values for the station
+           if len(tmp) > 0:                                                     # If values are found above, then
+             tmp     = tmp.loc[ tmp['day'] == max( tmp['day'] ) ];              # Get row for the last day of the contest at given city
+             sch_con = tmp['cum_err_total'].values[0];                          # Get cumulative error value
+             sch_con = 0.5 if err < sch_con else 0.0;                           # If forecaster error is less than school consensus, set sch_con to 0.5, else, set it to zero
+        if ntnl_consensus is not None:                                          # If ntnl_consensus is not None
+           tmp = ntnl_consensus.loc[ ntnl_consensus['identifier'] == id ];      # Locate all values for the station
+           if len(tmp) > 0:                                                     # If values are found above, then
+             tmp     = tmp.loc[ tmp['day'] == max( tmp['day'] ) ];              # Get row for the last day of the contest at given city
+             ntl_con = tmp['cum_err_total'].values[0];                          # Get cumulative error value
+             ntl_con = 1.0 if err < ntl_con else 0.0;                           # If forecaster error is less than national consensus, set ntl_con to 1.0, else, set it to zero
+  
+        score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
+        self.grades.loc[id] = [abse, numDays, climo, sch_con, ntl_con, score];
+        scores.append( score );
+        if verbose:
+          print( row_FMT.format(id,numDays,abse,climo,sch_con,ntl_con,score) );
+    if verbose:
+      print( line );
+      print( '{:>55} |{:9.2f}\n'.format('Average', np.mean( scores ) ) );
+    return np.mean( self.grades['Total'] )
+             
   ##############################################################################
   def __check_forecast(self, data):
     '''
@@ -120,14 +195,6 @@ class forecaster( object ):
       elif dd == self.year:                                                     # If the value matches the year attribute
         n += 1;                                                                 # Increment n by 1
     return n >= 5;                                                              # Return True if n is 5; i.e., all checks matched
-  ##############################################################################
-  def __insert_data(self, index, data):
-    '''
-    Private method for actually inserting data in to lists
-    '''
-    for i in range( len(data) ):                                                # Iterate over all columns
-      if type(self.__dict__[ cols[i]['name'] ]) is list:                        # If the data is of type list
-        self.__dict__[ cols[i]['name'] ].insert(index, data[i]);                # Append the data to the appropriate key in the class dictionary
   ##############################################################################
   def exists(self, name, category, school, semester, year):
     return (

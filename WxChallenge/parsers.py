@@ -77,15 +77,16 @@ def parse_results_body( table, date, ident, day, school = None ):
           ele = float(cols[i]);                                                 # Convert element to float
         except:                                                                 # If convert to float fails
           ele = cols[i];                                                        # Keep as string
+      if WxData.resultsCols[i]['name'] == 'abs' and ele == '': ele = 0;
       fc[ WxData.resultsCols[i]['name'] ] = ele;
     if school is not None:                                                      # If the school keyword is set
       if fc['school'] != school: continue;                                      # If the current school name is NOT in the list of schools, then continue
     
-    fc['date']     = date;
+    fc['date']       = date;
     fc['identifier'] = ident;
     fc['day']        = day;
-    fc['semester'] = getSemester(date);
-    fc['year']     = date.year;
+    fc['semester']   = getSemester(date);
+    fc['year']       = date.year;
 
     tag = '{}:{}:{}'.format( fc['name'], fc['school'], fc['category'] );        # Initialize a tag for the __forecasters dictionary
     forecasts[tag] = fc;                                                        # If the tag does NOT exist in the __forecasters dictionary, then initialize list under the tag
