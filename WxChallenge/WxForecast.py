@@ -135,7 +135,6 @@ class forecaster( pandas.DataFrame ):
       print( head_FMT.format('','Deductions','Bonus','ID', 'Days', 'Absence','Climo','School','National','Total') )
       print( line );
 
-    scores = [];
     for id in self['identifier'].unique():                                      # Iterate over the unique station identifiers
       vals    = self.loc[ self['identifier'] == id ];                           # Locate all the rows with the identifier
       numDays = len(vals);
@@ -168,12 +167,11 @@ class forecaster( pandas.DataFrame ):
   
         score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
         self.grades.loc[id] = [abse, numDays, climo, sch_con, ntl_con, score];
-        scores.append( score );
         if verbose:
           print( row_FMT.format(id,numDays,abse,climo,sch_con,ntl_con,score) );
     if verbose:
       print( line );
-      print( '{:>55} |{:9.2f}\n'.format('Average', np.mean( scores ) ) );
+      print( '{:>55} |{:9.2f}\n'.format('Average', np.mean( self.grades['Total'] ) ) );
     return np.mean( self.grades['Total'] )
              
   ##############################################################################
