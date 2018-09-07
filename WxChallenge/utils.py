@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup;
 import numpy as np;
+import xlwt;
 # from time import sleep;
 # from random import random;
 
@@ -9,6 +10,8 @@ try:
 except:
   from urllib.request import urlopen;
 
+
+xls_cols = ['ID', 'Day', 'Absent', 'Worse Climo']
 ################################################################################
 def getSemester( date ):
   return 'spring' if date.month < 8 else 'fall';
@@ -70,55 +73,90 @@ def padReshape( input ):
   input = np.array(input);                                                      # Ensure that input is a numpy array
   if (input.size % 8) != 0:                                                     # If the input array does NOT have a length that is a multiple of 8
     input = np.pad(input, (0, 8-(input.size % 8),), 'constant');                # Pad the end of the array so that it IS a multiple of 8
-  return np.reshape( input, (8, input.size//8,), order='f' );                   # Reshape into an (8, ncity) array in fortran order
+  return np.reshape( input, (input.size//8, 8,) );                              # Reshape into an (8, ncity) array in fortran order
 
-def scoring( fcs, verbose = False ):
+def scoring( fcs, verbose = False, spreadsheet = None ):
   '''
   Function for calculating score for the competition
   Inputs:
     fcs   : Must be a dictionary returned by get_forecasts method of
              WxChall_SQLite. SHOULD ONLY CONTAIN ONE SEMESTER OF DATA.
+  Keywords:
+    verbose:  Set to True to print tables of scores.
+    spreadsheet: Set to full path to save spreadsheet to
   '''
-  if 'CLIMO0' in fcs['xxx'][8] and 'CLIMO_' in fcs['xxx'][8]:                   # If both climatologies are present
-    climo = np.array( [fcs['xxx'][8]['CLIMO0']['err_total'], 
-                       fcs['xxx'][8]['CLIMO_']['err_total']] ).max(axis=0);     # Use the maximum value between the two; help the students
-  elif 'CLIMO0' in fcs['xxx'][8] and 'CLIMO_' not in fcs['xxx'][8]:             # If only one climo present
-    climo = np.array( fcs['xxx'][8]['CLIMO0']['err_total'] );                   # Use the climo
-  elif 'CLIMO0' not in fcs['xxx'][8] and 'CLIMO_' in fcs['xxx'][8]:             # If only one climo present
-    climo = np.array( fcs['xxx'][8]['CLIMO_']['err_total'] );                   # Use the climo
+  if spreadsheet:
+    book = xlwt.Workbook(encoding="utf-8")
+  else:
+    book = None;
+
+  climo_, climo0 = None, None;
+  consen, consen_ntl = None, None;
+  for fcster in fcs:                                                            # Iterate over all forecasters in the fcs list
+    if fcster.name == 'CLIMO_':                                                 # If forecaster name is CLIMO0
+      climo_ = np.array( fcster.err_total );
+    elif fcster.name == 'CLIMO0':
+      climo0 = np.array( fcster.err_total );
+    elif fcster.name == 'CONSEN':
+      if fcster.school == 'xxx':
+        consen_ntl = np.array( fcster.cum_err_total );
+      else:
+        consen = np.array( fcster.cum_err_total );
+#   return climo_, climo0
+  if climo_ is not None and climo0 is not None:                                 # If both climatologies are present
+    climo = np.maximum.reduce( [climo_, climo0] );
+  elif climo_ is not None:                                                      # If only one climo present
+    climo = climo_                                                              # Use the climo
+  elif climo0 is not None:                                                      # If only one climo present
+    climo = climo0                                                              # Use the climo
   else:                                                                         # Else
     climo = None;                                                               # Set climo to None;
-  if climo: climo = padReshape( climo );                                        # If climo is valid, pad and reshape the climatology
 
-  if 'CONSEN' in fcs['xxx'][9]:                                                 # If national consensus is present
-    ntl_consen = np.array( fcs['xxx'][9]['CONSEN']['cum_err_total'] );          # Set ntl_consen to the national consensus cumulative error
-  else:                                                                         # Else;
-    ntl_consen = None;                                                          # Set ntl_consen to None;
-  if ntl_consen: ntl_consen = padReshape( ntl_consen );                         # If ntl_consen is valid, pad and reshape the national consensus
-  
+  if climo  is not None:     climo      = padReshape( climo );                                        # If climo is valid, pad and reshape the climatology
+  if consen is not None:     consen     = padReshape( consen );
+  if consen_ntl is not None: consen_ntl = padReshape( consen_ntl );
+
   first = True;
-  for sch in fcs:                                                               # Iterate over all schools in the fcs dictionary
-    if sch == 'xxx': continue;                                                  # Skip xxx school
-    for cat in fcs[sch]:                                                        # Iterate over categories
-      for name in fcs[sch][cat]:                                                # Iterate over names
-        tmp    = fcs[sch][cat][name];                                           # Temporary data for school, category, forecaster
-        if first and verbose:
-          seen = set()
-          seen_add = seen.add
-          sites = [x for x in tmp['identifier'] if not (x in seen or seen_add(x))]
-          text  = ['{:6}'.format(s) for s in sites]
-          text  = ['Forecaster'] + text + ['{:6}'.format('Avg.')]
-          print(  ' '.join( text ) );
-          first = False;
-        err    = padReshape( tmp['err_total'] );                                # Pad and reshape the forecaster error points
-        missed = padReshape( [t != '' for t in tmp['type']] );                  # Pad and reshape the missed forecast flag; missed is either climo (C) or guidance (G); i.e., not ''
-        score  = 100 - np.clip(missed.sum(axis=0)-2, 0, None)*14.286;           # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
-        if climo is not None: 
-          score -= ((err > climo) & (missed == 0)).sum(axis=0)*6;       # If climo is set, determine number of times that forecaster actually forecasted (missed == 0) and did NOT beat climo; multiply this number by 6 and subtract from score
+  for fcster in fcs:                                                            # Iterate over all forecasters
+    if fcster.is_model or fcster.is_consen: continue;                           # If the forecaster is a model or consensus, skip it
+    if first:
+      first = False;
+      seen = set();
+      seen_add = seen.add
+      sites = [x for x in fcster.identifier if not (x in seen or seen_add(x))]
+      if verbose:
+        text  = ['{:6}'.format(s) for s in sites]
+        text  = ['Forecaster'] + text + ['{:6}'.format('Avg.')]
+        print(  ' '.join( text ) );
+    err    = padReshape( fcster.err_total );
+    miss   = padReshape( [t != '' for t in fcster.type] );                                   # Pad and reshape the missed forecast flag; missed is either climo (C) or guidance (G); i.e., not ''
+    score  = 100 - np.clip(miss.sum(axis=1)-2, 0, None)*14.286;                 # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
+    if climo is not None: 
+      score -= ((err > climo) & (miss == 0)).sum(axis=1)*6;                     # If climo is set, determine number of times that forecaster actually forecasted (missed == 0) and did NOT beat climo; multiply this number by 6 and subtract from score
 
-        tmp['score'] = score;                                                   # Append the score to the forecaster dictionary
-        if verbose: 
-          text = ['{:6.2f}'.format(s) for s in score]
-          text = ['{:10}'.format(name)] + text + ['{:6.2f}'.format(score.mean())]
-          print( ' '.join( text ) );
-  return fcs;
+    if book:
+      id = 0;
+      sheet = book.add_sheet(fcster.name)
+      for s in range(len(sites)):
+        offset = s * len(xls_cols);
+        sheet.write(0, offset, sites[s])
+        for i in range(len(xls_cols)): sheet.write(1, offset+i, xls_cols[i]);
+        for i in range(8):
+          if id >= len(fcster.day): break;
+          row = fcster.day[id]+1;
+#           print(s, i, row, offset)
+          sheet.write(row, offset,   fcster.identifier[id])
+          sheet.write(row, offset+1, fcster.day[id])
+          sheet.write(row, offset+2, int(miss[s,i]))
+          if climo is not None: 
+            sheet.write(row, offset+3, int(err[s,i] > climo[s,i]) );
+          id += 1
+        print(s, row)
+        sheet.write(row+1, offset+2, 'Score')
+        sheet.write(row+1, offset+3, score[s])
+        
+    if verbose: 
+      text = ['{:6.2f}'.format(s) for s in score]
+      text = ['{:10}'.format(fcster.name)] + text + ['{:6.2f}'.format(score.mean())]
+      print( ' '.join( text ) );
+  book.save(spreadsheet);

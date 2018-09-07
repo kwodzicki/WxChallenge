@@ -3,12 +3,14 @@ import sqlite3, os;
 try:
   from utils import updateSchedule, nestedDictSort;
   import data as WxData;
+  from WxForecast import forecaster, forecasts;
 except:
   from .utils import updateSchedule, nestedDictSort;
   from . import data as WxData;
+  from .WxForecast import forecaster, forecasts;
 
 _dir = os.path.dirname(os.path.abspath(__file__));
-_sql_file = os.path.join(_dir, 'WxChall.sqlite');
+_sql_file = os.path.join(_dir, 'WxChall.sql');
 
 class WxChall_SQLite( object ):
   ##############################################################################
@@ -30,9 +32,81 @@ class WxChall_SQLite( object ):
         ins = self.__buildInsert( vars );
         cmd = 'INSERT INTO forecasts {}'.format( ins );
         self.cursor.execute( cmd, vals );
-        self.db.commit();
+    self.db.commit();
   ##############################################################################
-  def get_forecasts(self, name = None, school = None, category = None, semYear = None):
+  def get_forecasts(self, name = None, school = None, category = None, semYear = None, models = True):
+    '''
+    Method for getting forecasts from the database
+    Keywords:
+      name     : Name of the forecaster; if only this used, all forecasts
+                  for this forecaster returned.
+      school   : School to filter by; if only this used, all forecasts
+                  for this school are returned.
+      category : category to filter by; if only this used, all forecasts
+                  for this category are returned.
+      semYear  : Tuple of (semester, year) to filter by; if only this used,
+                  all forecasts for this semester/year are returned.
+      models   : Default to True: gets category 8, set to False to NOT get data
+    '''
+    vars, vals = [], [];
+    if name is not None:
+      vars.append('name');
+      vals.append(name);
+    if school is not None:
+      vars.append('school')
+      vals.append(school);
+    if models:
+      vars.append('school')
+      vals.append('xxx');
+    if category is not None:
+      vars.append('category')
+      vals.append(category);
+    if semYear is not None:
+      vars.append('semester')
+      vals.append(semYear[0].lower());
+      vars.append('year')
+      vals.append(semYear[1]);
+    
+    
+    if len(vars) == 0:
+      cmd = 'SELECT * FROM forecasts';
+    else:
+      whr = self.__buildWhere( vars );
+      cmd = 'SELECT * FROM forecasts {}'.format( whr );
+    print(cmd)
+    self.cursor.execute(cmd, vals);
+    fcs = self.cursor.fetchall();
+    out = [];
+    for fc in fcs:
+      for i in range(len(fc)):
+        if WxData.forecastCols[i]['name'] == 'name':
+          name   = fc[i];  # Name
+        elif WxData.forecastCols[i]['name'] == 'school':
+          school = fc[i];  # School
+        elif WxData.forecastCols[i]['name'] == 'category':
+          categ  = fc[i];  # Category
+        elif WxData.forecastCols[i]['name'] == 'semester':
+          semes  = fc[i]; # semester
+        elif WxData.forecastCols[i]['name'] == 'year':
+          year   = fc[i]; # Year 
+      if len(out) == 0:
+        out.append( forecaster(name, categ, school, semes, year) );
+        out[0].add_forecast( fc );
+      else:
+        exist = False
+        for i in range( len(out) ):
+          if out[i].exists(name, categ, school, semes, year):
+            exist = True;
+            break;
+        if exist: 
+          if not out[i].add_forecast( fc ): print('failed to add forecast!');
+        else:
+          out.append( forecaster(name, categ, school, semes, year) );
+          if not out[-1].add_forecast( fc ): print('failed to add forecast!');
+    return sorted(out, key = lambda x: x.name);
+#     return forecasts(out);
+  ##############################################################################
+  def __get_forecasts(self, name = None, school = None, category = None, semYear = None):
     '''
     Method for getting forecasts from the database
     Keywords:
@@ -160,7 +234,16 @@ class WxChall_SQLite( object ):
       return None;
   ##############################################################################
   def __buildWhere(self, cols):
-    vars = ['{}=?'.format(ele) for ele in cols];
+    vars, i = [], 0;
+    while i < len(cols):
+      n = cols.count( cols[i] );
+      if n == 1:
+        vars.append( '{}=?'.format( cols[i] ) );
+      else:
+        tmp = ['{}=?'.format( cols[i] )] * n;
+        tmp = ' OR '.join( tmp )
+        vars.append( '({})'.format(tmp) );  
+      i += n      
     return "WHERE ({})".format( ' AND '.join( vars ) );
   def __buildInsert(self, cols):
     vars = [ele for ele in cols];

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os;
 import numpy as np;
-from datetime import datetime, timedelta;
+from datetime import date, timedelta;
 # Handle both Python2 and Python3
 try:
   from WxChall_SQLite import WxChall_SQLite;
@@ -21,7 +21,7 @@ class WxChallenge( WxChall_SQLite ):
                 3 : 'Junior/Senior',
                 4 : 'Freshman/Sophomore'}
   def __init__(self):
-    self._date        = datetime.today().date()-timedelta(days=1)
+    self._date        = date.today()-timedelta(days=1)
     WxChall_SQLite.__init__(self);
     self._header      = None;
     self._forecasters = None;
@@ -65,6 +65,10 @@ class WxChallenge( WxChall_SQLite ):
         table   = soup.find('table');                                           # Find the table in the parsed data
         self._head = parse_results_head(table);                                 # Parse the results header
         ident, day = self.getIdentDay(tag, dates[i])
+        if ident is None:
+          print('Issue getting identifer for:\n{}'.format(urls[i]) );
+          print( tag, dates[i] );
+          raise Exception;
         forecasts  = parse_results_body(table, dates[i], ident, day)            # Parse results body
         models     = parse_results_foot(table, dates[i], ident, day)   
         self.add_forecasts( forecasts );
@@ -111,7 +115,9 @@ class WxChallenge( WxChall_SQLite ):
         table   = soup.find('table');                                           # Find the table in the parsed data
         self._head = parse_results_head(table);                                 # Parse the results header
         forecasts  = parse_results_body(table, dates[i], identifier, day);      # Parse results body
+        models     = parse_results_foot(table, dates[i], identifier, day)   
         self.add_forecasts( forecasts );
+        self.add_forecasts( models    );
       else:                                                                     # Else, data download NOT successful
         print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
         return False
@@ -122,13 +128,13 @@ class WxChallenge( WxChall_SQLite ):
     A method for determineing the forecast day and the station identifier.
     '''
     if semYear not in self._schedule:
-      return None;
+      return None, None;
     for identifier in self._schedule[semYear]:
       tmp = self._schedule[semYear][identifier];
       if tmp['start'] <= date and tmp['end'] >= date:
         day = (date - tmp['start']).days + 1
         if day == 5 or day == 6: return None, None;        # If day is 5 or 6, then return; no forecasting on Saturday/Sunday
-        if day >= 7: day = (day % 7) + 5;                  # If the day is greater or equal 7, then mod 7 and add 4
+        if day >= 7: day = (day % 7) + 4;                  # If the day is greater or equal 7, then mod 7 and add 4
         if day >= 9: return None, None;                    # If the day is greater or equal 9, no forecasting on Saturday/Sunday
         return identifier, day;                # Determine the forecast day
   ###########################################################################
