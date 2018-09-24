@@ -1,4 +1,4 @@
 try:
-  from WxChallenge import WxChallenge
+  from WxChallenge.WxChallenge import WxChallenge
 except:
-  from .WxChallenge import WxChallenge
+  from .WxChallenge.WxChallenge import WxChallenge

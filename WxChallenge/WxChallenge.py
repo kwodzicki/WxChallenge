@@ -88,20 +88,20 @@ class WxChallenge( WxChall_SQLite ):
     Keywords:
        schools     : School code(s)
     '''
-    semester = getSemester( self._date )
-    year     = self._date.year
-    tag = '{}:{}'.format(semester, year);                                       # Define tag for indexing _schedule
+    date     = self._date - timedelta(days=3);                                  # Set date to 3 days before today's date
+    semester = getSemester( date );                                             # Get semester; i.e., spring or fall
+    tag = '{}:{}'.format(semester, date.year);                                  # Define tag for indexing _schedule
     if tag not in self._schedule:                                               # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
-      err = 'Error finding {} {} in the forecast schedule'.format(semester, year);
-      raise Exception(err);
+      err = 'Error finding {} {} in the forecast schedule';                     # Formatting for exception
+      raise Exception( err.format(semester, date.year) );                       # Raise the exception
 
-    identifier, day = self.getIdentDay(tag, self._date);                        # Get identifier and day based on the tag info and today's date
+    identifier, day = self.getIdentDay(tag, date);                              # Get identifier and day based on the tag info and today's date
       
     urls, dates = self.__get_results_urls_dates(
-      year, semester, identifier, day, schools = schools
+      date.year, semester, identifier, day, schools = schools
     )
     if urls is None or len(urls) == 0:
-      err = 'No varification for: {}!'.format(self._date)
+      err = 'No varification for: {}!'.format( date )
       print(err);
       return False;
     for i in range(len(urls)):                                                  # Iterate over all urls
@@ -135,16 +135,18 @@ class WxChallenge( WxChall_SQLite ):
     Keywords:
        None.
     '''
-    if semYear not in self._schedule:                                           # If the semester and year are NOT in the schedule
-      return None, None;                                                        # Return None
-    for identifier in self._schedule[semYear]:                                  # Else, iterate over all the identifiers in the semester/year that are in the schedule
-      tmp = self._schedule[semYear][identifier];                                # Get the data for a given identifier in a given semester/year
-      if tmp['start'] <= date and tmp['end'] >= date:                           # If the date input is between the starting/ending dates for the station
-        day = (date - tmp['start']).days + 1;                                   # Compute rough forecast day
-        if day == 5 or day == 6: return None, None;                             # If day is 5 or 6, then return; no forecasting on Saturday/Sunday
-        if day >= 7: day = (day % 7) + 4;                                       # If the day is greater or equal 7, then mod 7 and add 4
-        if day >= 9: return None, None;                                         # If the day is greater or equal 9, no forecasting on Saturday/Sunday
-        return identifier, day;                                                 # Determine the forecast day
+    out_id, out_day = None, None;
+    if semYear in self._schedule:                                               # If the semester and year are NOT in the schedule
+      for identifier in self._schedule[semYear]:                                # Else, iterate over all the identifiers in the semester/year that are in the schedule
+        tmp = self._schedule[semYear][identifier];                              # Get the data for a given identifier in a given semester/year
+        if tmp['start'] <= date and tmp['end'] >= date:                         # If the date input is between the starting/ending dates for the station
+          day = (date - tmp['start']).days + 1;                                 # Compute rough forecast day
+          if day == 5 or day == 6: break;                                       # If day is 5 or 6, then break; no forecasting on Saturday/Sunday
+          if day >= 7: day = (day % 7) + 4;                                     # If the day is greater or equal 7, then mod 7 and add 4
+          if day >= 9: break;                                                   # If the day is greater or equal 9, no forecasting on Saturday/Sunday
+          out_id, out_day = identifier, day;                                    # Determine the forecast day
+          break;                                                                # Break the loop
+    return out_id, out_day;                                                     # Determine the forecast day
   ##############################################################################
   def download_Schedule(self, year = None, all = False):
     '''

@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+
+from WxChallenge import WxChallenge;
+
+if __name__ == "__main__":
+	import argparse;                                                              # Import library for parsing
+	parser = argparse.ArgumentParser(description="WxChallenge Daily Update");     # Set the description of the script to be printed in the help doc, i.e., ./script -h
+	parser.add_argument("schools", type=str, nargs='*', 
+	  help="School code(s). Only data for these schools will be scraped"); 
+	args = parser.parse_args();                                                   # Parse the arguments
+
+	inst = WxChallenge();
+	inst.update_Daily( schools = args.schools if len(args.schools) > 0 else None );     
