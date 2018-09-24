@@ -5,6 +5,7 @@ except:
   from .data import forecastCols as cols;
 import pandas;
 import numpy as np;
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -59,6 +60,12 @@ class forecasts( object ):
 ################################################################################
 ################################################################################
 class forecaster( pandas.DataFrame ):
+  _categories = {0 : 'Professional', 
+                 1 : 'Faculty/Staff/Post-Doc',
+                 2 : 'Grad-Student',
+                 3 : 'Junior/Senior',
+                 4 : 'Freshman/Sophomore'}
+
   def __init__(self, data = None, index = None, columns = None, dtype = None, copy = False,
     name = None, school = None, category = None, semester = None, year = None):
 
@@ -113,7 +120,7 @@ class forecaster( pandas.DataFrame ):
     Inputs:
        None.
     Keywords:
-       climatology    : Single, or list of forecaster instance for a climatology(ies)
+       climatology    : Single, or list of forecaster instance for climatology(ies)
        sch_consensus  : Forecaster instance for school consensus
        ntnl_consensus : Forecaster instance for national consensus
     '''
@@ -166,13 +173,13 @@ class forecaster( pandas.DataFrame ):
              ntl_con = 1.0 if err < ntl_con else 0.0;                           # If forecaster error is less than national consensus, set ntl_con to 1.0, else, set it to zero
   
         score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
-        self.grades.loc[id] = [abse, numDays, climo, sch_con, ntl_con, score];
+        self.grades.loc[id] = [numDays, abse, climo, sch_con, ntl_con, score];
         if verbose:
           print( row_FMT.format(id,numDays,abse,climo,sch_con,ntl_con,score) );
     if verbose:
       print( line );
-      print( '{:>55} |{:9.2f}\n'.format('Average', np.mean( self.grades['Total'] ) ) );
-    return np.mean( self.grades['Total'] )
+      print( '{:>55} |{:9.2f}\n'.format('Average', self.grades['Total'].mean()) );
+    return self.grades['Total'].mean()
              
   ##############################################################################
   def __check_forecast(self, data):

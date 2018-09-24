@@ -15,12 +15,7 @@ except:
 
 class WxChallenge( WxChall_SQLite ):
   URL        = 'http://wxchallenge.com';
-  categories = {0 : 'Professional', 
-                1 : 'Faculty/Staff/Post-Doc',
-                2 : 'Grad-Student',
-                3 : 'Junior/Senior',
-                4 : 'Freshman/Sophomore'}
-  def __init__(self):
+  def __init__(self, verbose = False):
     self._date        = date.today()-timedelta(days=1)
     WxChall_SQLite.__init__(self);
     self._header      = None;
@@ -28,6 +23,7 @@ class WxChallenge( WxChall_SQLite ):
     self._schedule    = self.get_schedule();
     if len(self._schedule) == 0: 
       self.download_Schedule(all=True);
+    self.verbose = verbose;
 
   ###########################################################################
   def update_Semester(self, semester, year, schools = None):
@@ -125,80 +121,30 @@ class WxChallenge( WxChall_SQLite ):
   ###########################################################################
   def getIdentDay(self, semYear, date):
     '''
-    A method for determineing the forecast day and the station identifier.
-    '''
-    if semYear not in self._schedule:
-      return None, None;
-    for identifier in self._schedule[semYear]:
-      tmp = self._schedule[semYear][identifier];
-      if tmp['start'] <= date and tmp['end'] >= date:
-        day = (date - tmp['start']).days + 1
-        if day == 5 or day == 6: return None, None;        # If day is 5 or 6, then return; no forecasting on Saturday/Sunday
-        if day >= 7: day = (day % 7) + 4;                  # If the day is greater or equal 7, then mod 7 and add 4
-        if day >= 9: return None, None;                    # If the day is greater or equal 9, no forecasting on Saturday/Sunday
-        return identifier, day;                # Determine the forecast day
-  ###########################################################################
-  def __update(self, semYear = None, identifier = None, day = None, school = None):
-    '''
     Name:
-       update
+       getIdentDay
     Purpose:
-       A python function to download and parse (using BeautifulSoup) data
-       from the WxChallenge.com webpage.
+       A method for determineing the forecast day and the station identifier.
     Inputs:
-       semYears   : Tuple containing the 
-                     (semester, year) to get data for.
-       identifier : City identifier; i.e., KPDX for Portland, Or.
-       day        : Day of the challenge.
-       school     : School code
-    Ouputs:
-       Some data
+       semYear : A string formatted as "semester:year" to be used as a key
+                 for the _schedule dictionary
+       date    : A datetime object for the date of interest
+    Outputs:
+       Returns a station identifier and forecast day number OR None if
+       nothing found
     Keywords:
        None.
-    Author and History:
-       Kyle R. Wodzicki     Created 29 Aug. 2018
     '''
-    def getForecastDay(tag):
-      for identifier in self._schedule[tag]:
-        tmp = self._schedule[tag][identifier];
-        if tmp['start'] <= self._date and tmp['end'] >= self._date:
-          return identifier, ((self._date - tmp['start']).days + 1) % 7;      # Determine the forecast day
-      return None, None;
-      
-    if not semYear: 
-      semester = getSemester(self._date)
-      year     = self._date.year
-    else:
-      semester = semYear[0].lower()
-      year     = semYear[1]
-    
-    tag = '{}:{}'.format(semester, year);                                       # Define tag for indexing _schedule
-    print(tag);
-    if tag not in self._schedule:                                              # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
-      err = 'Error finding {} {} in the forecast schedule'.format(semester, year);
-      raise Exception(err);
-      
-    if not identifier:                                                          # If no identifier is input
-      if not day:                                                               # If no day is input
-        identifier, day = getForecastDay(tag);                                  # Get identifier and day based on the tag info and today's date
-        if day is None:
-          raise Exception('Something went wrong! Has the challenge started yet?');
-    else:                                                                       # Identifier was input
-      identifier = identifier.upper();
-      if identifier not in self._schedule[tag]:                                 # If the identifier is NOT in the sem:year dictionary
-        raise Exception('{} is NOT in {} {} schedule'.format(identifier, semester, year) );#Raise an exception
-      if not day: day = [i for i in range(1, 9)];                               # If day is not set, then generate numbers from 1-8, inclusive.
-
-    urls, dates = self.__get_results_urls_dates(years, semesters, identifiers, days)
-    for i in range(len(urls)):                                                  # Iterate over all urls
-      soup = checkURL(urls[i]);                                                 # Download the HTML
-      if soup:                                                                  # If data download was successful 
-        table   = soup.find('table');                                           # Find the table in the parsed data
-        self._head = parse_results_head(table);                                 # Parse the results header
-        forecasts  = parse_results_body(table, dates[i])                        # Parse results body
-        self.add_forecasts( forecasts );
-      else:                                                                     # Else, data download NOT successful
-        print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
+    if semYear not in self._schedule:                                           # If the semester and year are NOT in the schedule
+      return None, None;                                                        # Return None
+    for identifier in self._schedule[semYear]:                                  # Else, iterate over all the identifiers in the semester/year that are in the schedule
+      tmp = self._schedule[semYear][identifier];                                # Get the data for a given identifier in a given semester/year
+      if tmp['start'] <= date and tmp['end'] >= date:                           # If the date input is between the starting/ending dates for the station
+        day = (date - tmp['start']).days + 1;                                   # Compute rough forecast day
+        if day == 5 or day == 6: return None, None;                             # If day is 5 or 6, then return; no forecasting on Saturday/Sunday
+        if day >= 7: day = (day % 7) + 4;                                       # If the day is greater or equal 7, then mod 7 and add 4
+        if day >= 9: return None, None;                                         # If the day is greater or equal 9, no forecasting on Saturday/Sunday
+        return identifier, day;                                                 # Determine the forecast day
   ##############################################################################
   def download_Schedule(self, year = None, all = False):
     '''
@@ -268,12 +214,3 @@ class WxChallenge( WxChall_SQLite ):
             file = fileFMT.format(identifier.lower(), school, day);             # Generate the file name
             urls.append( '{}/{}/{}/{}'.format(self.URL, dir, year, file) );     # Append full URL to the list of urls
     return urls, dates;                                                         # Return urls and dates variables
-
-
-if __name__ == "__main__":
-  
-  year     = '17-18'
-  city     = 'kpvd'
-  day      = 1
-  d = WxChallenge(year, city, day);
-  

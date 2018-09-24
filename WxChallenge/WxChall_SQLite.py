@@ -35,7 +35,7 @@ class WxChall_SQLite( object ):
         self.cursor.execute( cmd, vals );
     self.db.commit();
   ##############################################################################
-  def get_forecasts(self, name = None, school = None, category = None, semYear = None, models = True):
+  def get_forecasts(self, name = None, school = None, category = None, semester = None, year = None, models = True):
     '''
     Method for getting forecasts from the database
     Keywords:
@@ -45,8 +45,8 @@ class WxChall_SQLite( object ):
                   for this school are returned.
       category : category to filter by; if only this used, all forecasts
                   for this category are returned.
-      semYear  : Tuple of (semester, year) to filter by; if only this used,
-                  all forecasts for this semester/year are returned.
+      semester : Subset data by given semester
+      year     : Subset data by given year
       models   : Default to True: gets category 8, set to False to NOT get data
     '''
     vars, vals = [], [];                                                        # Initialize lists for var names and values to search by in the SQL table
@@ -71,14 +71,18 @@ class WxChall_SQLite( object ):
       for c in category:                                                        # Iterate over all values in category
         vars.append('category');                                                # Append 'category' string to vars list
         vals.append(c);                                                         # Append input category to vals list
-    if semYear is not None:                                                     # If semYear is NOT None
-      if type(semYear[0]) is not list and type(semYear[0]) is not tuple:        # Because semYear IS a tuple or list because they are paired, make certain that zeroth element is NOT a list OR tuple. If it is, then already multiple values
-        semYear = [semYear];                                                    # Convert to list
-      for sy in semYear:                                                        # Iterate over all values in semYear
+    if semester is not None:
+      if type(semester) is not list and type(semester) is not tuple:            # Because semYear IS a tuple or list because they are paired, make certain that zeroth element is NOT a list OR tuple. If it is, then already multiple values
+        semester = [semester];                                                  # Convert to list
+      for s in semester:                                                        # Iterate over all values in semYear
         vars.append('semester');                                                # Append 'semester' string to vars list
-        vals.append(sy[0]);                                                     # Append input semester to vals list
+        vals.append(s);                                                         # Append input semester to vals list
+    if year is not None:
+      if type(year) is not list and type(year) is not tuple:                    # Because semYear IS a tuple or list because they are paired, make certain that zeroth element is NOT a list OR tuple. If it is, then already multiple values
+        year = [year];                                                          # Convert to list
+      for y in year:                                                            # Iterate over all values in semYear
         vars.append('year');                                                    # Append 'year' string to vars list
-        vals.append(sy[1]);                                                     # Append input year to vals list
+        vals.append(y);                                                         # Append input year to vals list
     
     
     if len(vars) == 0:                                                          # If the length of vars is zero

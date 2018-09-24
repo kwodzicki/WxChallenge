@@ -9,7 +9,7 @@ setuptools.setup(
   url          = "https://github.com/kwodzicki/WxChallenge",
   author       = "Kyle R. Wodzicki",
   author_email = "krwodzicki@gmail.com",
-  version      = "0.1.0",
+  version      = "0.1.1",
   packages     = setuptools.find_packages(),
   install_requires = [ "bs4", "numpy", "pandas", "xlwt" ],
   zip_safe = False
