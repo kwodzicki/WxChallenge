@@ -11,7 +11,7 @@ setuptools.setup(
   author_email     = "krwodzicki@gmail.com",
   version          = "0.1.2",
   packages         = setuptools.find_packages(),
-  install_requires = [ "bs4", "numpy", "pandas", "xlwt" ],
+  install_requires = [ "bs4", "lxml", "numpy", "pandas", "xlwt" ],
   scripts          = ['bin/WxChall_Daily_Update'],
   zip_safe = False
 );
