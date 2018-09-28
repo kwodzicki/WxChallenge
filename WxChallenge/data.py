@@ -11,7 +11,7 @@ Descriptions of key/value pairs in the dictionaries below
   pandas_ind : Signifies if this variable is to be used as a pandas dataframe
                 index, or row.
 '''
-
+# Columns for data in the WxChallenge resutls table
 resultsCols = [
   {'name' : 'rank',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
   {'name' : 'prev',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
@@ -41,16 +41,25 @@ resultsCols = [
   {'name' : 'norm_cum',        'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False},
   {'name' : 'norm_rank',       'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}
 ];
+
+# Columns for the SQL table containing forcests
 forecastCols = resultsCols + [
   {'name' : 'date',       'type' : 'DATE',    'pandas_col' : False, 'pandas_ind' : True},
   {'name' : 'identifier', 'type' : 'TEXT',    'pandas_col' : True,  'pandas_ind' : False},
   {'name' : 'day',        'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
   {'name' : 'semester',   'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : False},
   {'name' : 'year',       'type' : 'INTEGER', 'pandas_col' : False, 'pandas_ind' : False}
-]; # These are the columns in the SQL database
-  
+];
+
+# Columns for the SQL table containing forecast city schedule
 scheduleCols = [{'name' : 'city',  'type' : 'TEXT'},
                 {'name' : 'state', 'type' : 'TEXT'},
                 {'name' : 'ident', 'type' : 'TEXT'},
                 {'name' : 'start', 'type' : 'DATE'},
                 {'name' : 'end',   'type' : 'DATE'}];
+
+# Columns used for checking if a forecast exists in the SQL table of forecasts.
+#  This is used to check if a forecast exists for the given date. If it does, then
+#  check some more data to see if the forecast should be updated. Else, the forecast 
+#  is inserted into the table
+fcstChckCols = [ 'name', 'school', 'category', 'date' ];

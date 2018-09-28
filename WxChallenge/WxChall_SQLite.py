@@ -23,17 +23,43 @@ class WxChall_SQLite( object ):
   ##############################################################################
   def add_forecasts(self, forecasts):
     '''Method for adding a forecast to the database'''
-    for tag in forecasts:
-      vars = [ ele['name'] for ele in WxData.forecastCols ];                    # Get list of names for each column in the schedule table
-      vals = [ forecasts[tag][v] for v in vars ];                               # Get value to go in each column from the info dictionary
-      whr  = self.__buildWhere( vars );                                         # Build a 'WHERE (var1=? AND var2=?...)' statement based on the columns in the schedule table
-      cmd  = 'SELECT * from forecasts {}'.format( whr );                        # Build full command to look for entry
-      self.cursor.execute( cmd, vals );                                         # Execute the command
-      if not self.cursor.fetchone():                                            # If there is nothing found, then
-        ins = self.__buildInsert( vars );
-        cmd = 'INSERT INTO forecasts {}'.format( ins );
-        self.cursor.execute( cmd, vals );
-    self.db.commit();
+    fcst_vars = [ ele['name'] for ele in WxData.forecastCols ];                 # List of variable names for all columns in the SQL forecasts table
+    chck_vars = [ ele         for ele in WxData.fcstChckCols ];                 # List of variable names for checking if a forecast exists
+    whr       = self.__buildWhere( chck_vars );                                 # Build a 'WHERE (var1=? AND var2=?...)' statement based on the variables in the forecast check list
+    ins       = self.__buildInsert( fcst_vars );                                # Build a '() VALUES ()' statement based on the columns in the forecast table
+    whr_cmd   = 'SELECT * from forecasts {}'.format( whr );                     # Build full command to look for entry
+    ins_cmd   = 'INSERT INTO forecasts {}'.format( ins );                       # Build full command to insert data
+    
+    for tag in forecasts:                                                       # Iterate over all the forecasts
+      chck_vals = [ forecasts[tag][v] for v in chck_vars ];                     # Get value to go in each column from the info dictionary
+      fcst_vals = [ forecasts[tag][v] for v in fcst_vars ];                     # Get value to go in each column from the info dictionary
+      self.cursor.execute( whr_cmd, chck_vals );                                # Execute the command
+      fcst = self.cursor.fetchone();                                            # Attempt to get the forecast matching the conditions
+      if not fcst:                                                              # If there is nothing found, then
+        self.cursor.execute( ins_cmd, fcst_vals );                              # Execute the command
+      else:                                                                     # Else, must check the values in the table 
+        upd_var, upd_val = [], [];                                              # Lists to store key/value pairs for data that must be updated in the SQL forecasts table
+        for i in range( len(fcst) ):                                            # Iterate over all the forecast values
+          if fcst[i] != fcst_vals[i]:                                           # If the value from the SQL table does NOT match the current forecast value
+            upd_var.append( fcst_vars[i] );                                     # Append the variable name to the upd_var list
+            upd_val.append( fcst_vals[i] );                                     # Append the value to the upd_var list
+        if len(upd_var) > 0:                                                    # If there are values to update
+          upd = self.__buildUpdate( upd_var );                                  # Build a 'SET key=?, key=?' statement  based on the columns in 
+          upd_cmd = 'UPDATE forecasts {} {}'.format( upd, whr );                # Build the update command
+          self.cursor.execute( upd_cmd, upd_val + chck_vals );                  # Update the values
+    self.db.commit();                                                           # Write all changes to the database
+
+#     for tag in forecasts:
+#       vars = [ ele['name'] for ele in WxData.forecastCols ];                    # Get list of names for each column in the schedule table
+#       vals = [ forecasts[tag][v] for v in vars ];                               # Get value to go in each column from the info dictionary
+#       whr  = self.__buildWhere( vars );                                         # Build a 'WHERE (var1=? AND var2=?...)' statement based on the columns in the schedule table
+#       cmd  = 'SELECT * from forecasts {}'.format( whr );                        # Build full command to look for entry
+#       self.cursor.execute( cmd, vals );                                         # Execute the command
+#       if not self.cursor.fetchone():                                            # If there is nothing found, then
+#         ins = self.__buildInsert( vars );
+#         cmd = 'INSERT INTO forecasts {}'.format( ins );
+#         self.cursor.execute( cmd, vals );
+#     self.db.commit();
   ##############################################################################
   def get_forecasts(self, name = None, school = None, category = None, semester = None, year = None, models = True):
     '''
@@ -94,6 +120,7 @@ class WxChall_SQLite( object ):
     fcs = DataFrame( self.cursor.fetchall(), 
       columns = [i['name'] for i in WxData.forecastCols]
     );                                                                          # Fetch all the information from the SQL table and convert it to a pandas DataFrame using the forecastCols column names
+    if len(fcs) == 0: return None;                                              # If no forecasts found, return None
     fcs = fcs.set_index('date');                                                # Set the date column to be the index values
     out, uColNames = [], [];                                                    # Initialize output list and list that will contain column names to sort for unique forecasters
     for i in WxData.forecastCols:                                               # Iterate over all column names in forecastCols
@@ -114,7 +141,7 @@ class WxChall_SQLite( object ):
         year     = col[4]
       );                                                                        # Create new forecaster instance using the vals for the unique forecaster making sure to drop all the uColName columns
       out.append( tmp );                                                        # Append the new forecaster instance to the out list
-    return sorted(out, key=lambda k: k.name) 
+    return sorted(out, key=lambda k: k.name.lower())                            # Return a list of forecasters sorted alphabetically by name
 #     return out
 
   ##############################################################################
@@ -261,6 +288,9 @@ class WxChall_SQLite( object ):
     vars = [ele for ele in cols];
     vals = ['?'] * len(vars)
     return "({}) VALUES ({})".format( ','.join( vars ), ','.join( vals ) );
+  def __buildUpdate(self, cols):
+    vars = ['{}=?'.format(ele) for ele in cols];
+    return "SET {}".format( ','.join( vars ) );
 
   ##############################################################################
   def close(self): 

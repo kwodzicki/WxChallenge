@@ -83,6 +83,7 @@ class forecaster( pandas.DataFrame ):
     self.semester  = semester;
     self.year      = year;
     self.grades    = None;
+    self.is_climo  = 'CLIMO' in name.upper();
     self.is_model  = category == 8;
     self.is_consen = category == 9;
     

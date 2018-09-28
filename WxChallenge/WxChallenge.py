@@ -16,7 +16,7 @@ except:
 class WxChallenge( WxChall_SQLite ):
   URL        = 'http://wxchallenge.com';
   def __init__(self, verbose = False):
-    self._date        = date.today()-timedelta(days=1)
+    self._date        = date.today();
     WxChall_SQLite.__init__(self);
     self._header      = None;
     self._forecasters = None;
@@ -31,16 +31,15 @@ class WxChallenge( WxChall_SQLite ):
     Name:
        update_Semester
     Purpose:
-       A python function to download data
-       from the WxChallenge.com webpage.
+       A method to download data from the WxChallenge.com
+       for a given semester in a given year.
     Inputs:
        semester : Semester (spring, fall) to download, string
        year     : Year to download, int
-       school   : School code; only get data from this school
     Ouputs:
-       Some data
+       True/False
     Keywords:
-       None.
+       school   : School code; only get data from this school
     Author and History:
        Kyle R. Wodzicki     Created 29 Aug. 2018
     '''      
@@ -71,6 +70,52 @@ class WxChallenge( WxChall_SQLite ):
         self.add_forecasts( models    );
       else:                                                                     # Else, data download NOT successful
         print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
+    return True;
+  ###########################################################################
+  def update_Day(self, semester, year, identifier, day, schools = None):
+    '''
+    Name:
+       update_Day
+    Purpose:
+       A method to download and parse (using BeautifulSoup) data
+       from the WxChallenge.com webpage for a specific forecast day
+    Inputs:
+       semester   : Semester to download for (fall or spring)
+       year       : Year to download for
+       identifier : Identifier for the forecast city
+       day        : Forecast day number (1-8)
+    Ouputs:
+       True/False
+    Keywords:
+       schools     : School code(s) as scalar string or list of strings
+    '''
+    identifier = identifier.upper();
+    tag = '{}:{}'.format(semester, year);                                       # Define tag for indexing _schedule
+    if tag not in self._schedule:                                               # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
+      err = 'Error finding {} {} in the forecast schedule';                     # Formatting for exception
+      raise Exception( err.format(semester, year) );                            # Raise the exception
+      
+    urls, dates = self.__get_results_urls_dates(
+      year, semester, identifier, day, schools = schools
+    )
+    if urls is None or len(urls) == 0:
+      err = 'No varification for: {} ID: {}, Day: {}!'.format( tag, identifier, day )
+      print(err);
+      return False;
+    for i in range(len(urls)):                                                  # Iterate over all urls
+      print( urls[i] );
+      soup = checkURL(urls[i]);                                                 # Download the HTML
+      if soup:                                                                  # If data download was successful 
+        table   = soup.find('table');                                           # Find the table in the parsed data
+        self._head = parse_results_head(table);                                 # Parse the results header
+        forecasts  = parse_results_body(table, dates[i], identifier, day);      # Parse results body
+        models     = parse_results_foot(table, dates[i], identifier, day)   
+        self.add_forecasts( forecasts );
+        self.add_forecasts( models    );
+      else:                                                                     # Else, data download NOT successful
+        print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
+        return False
+    return True
 
   ###########################################################################
   def update_Daily(self, schools = None):
@@ -78,13 +123,13 @@ class WxChallenge( WxChall_SQLite ):
     Name:
        update_Daily
     Purpose:
-       A python function to download and parse (using BeautifulSoup) data
-       from the WxChallenge.com webpage using todays date as the forecast
-       day.
+       A method to download and parse (using BeautifulSoup) data
+       from the WxChallenge.com webpage using the date from 3 days
+       ago, i.e., if run on Wednesday, will get data for Monday
     Inputs:
        None.
     Ouputs:
-       Some data
+       True/False
     Keywords:
        schools     : School code(s)
     '''
