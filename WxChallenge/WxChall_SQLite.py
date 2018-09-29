@@ -47,21 +47,74 @@ class WxChall_SQLite( object ):
           upd = self.__buildUpdate( upd_var );                                  # Build a 'SET key=?, key=?' statement  based on the columns in 
           upd_cmd = 'UPDATE forecasts {} {}'.format( upd, whr );                # Build the update command
           self.cursor.execute( upd_cmd, upd_val + chck_vals );                  # Update the values
-    self.db.commit();                                                           # Write all changes to the database
-
-#     for tag in forecasts:
-#       vars = [ ele['name'] for ele in WxData.forecastCols ];                    # Get list of names for each column in the schedule table
-#       vals = [ forecasts[tag][v] for v in vars ];                               # Get value to go in each column from the info dictionary
-#       whr  = self.__buildWhere( vars );                                         # Build a 'WHERE (var1=? AND var2=?...)' statement based on the columns in the schedule table
-#       cmd  = 'SELECT * from forecasts {}'.format( whr );                        # Build full command to look for entry
-#       self.cursor.execute( cmd, vals );                                         # Execute the command
-#       if not self.cursor.fetchone():                                            # If there is nothing found, then
-#         ins = self.__buildInsert( vars );
-#         cmd = 'INSERT INTO forecasts {}'.format( ins );
-#         self.cursor.execute( cmd, vals );
-#     self.db.commit();
+    self.db.commit();                                                           # Write all changes to the database  
   ##############################################################################
-  def get_forecasts(self, name = None, school = None, category = None, semester = None, year = None, models = True):
+  def get_forecasts(self, name = None, school = None, category = None, semester = None, year = None, models = False):
+    '''
+    Method for getting forecasts from the database
+    Keywords:
+      name     : Name of the forecaster; if only this used, all forecasts
+                  for this forecaster returned.
+      school   : School to filter by; if only this used, all forecasts
+                  for this school are returned.
+      category : category to filter by; if only this used, all forecasts
+                  for this category are returned.
+      semester : Subset data by given semester
+      year     : Subset data by given year
+      models   : Default to True: gets category 8, set to False to NOT get data
+    '''
+    vars, vals = [], [];                                                        # Initialize lists for var names and values to search by in the SQL table
+    if name is not None:                                                        # If name is NOT None
+      if type(name) is not list and type(name) is not tuple:                    # Ensure that name is type list; checking if not list and not tuple
+        name = [name];    
+      for n in name:                                                            # Iterate over all values in name
+        vars.append('name');                                                    # Append 'name' string to vars list
+        vals.append(n);                                                         # Append input name to vals list
+    if models:                                                                  # If models is True
+      vars.append('school');                                                    # Append 'school' string to vars list
+      vals.append('xxx');                                                       # Append 'xxx' to vals list
+    elif school is not None:                                                    # Else, if school is NOT None;
+      if type(school) is not list and type(school) is not tuple:                # Ensure that school is type list; checking if not list and not tuple
+        school = [school];
+      for s in school:                                                          # Iterate over all values in school
+        vars.append('school');                                                  # Append 'school' string to vars list
+        vals.append(s);                                                         # Append input school to vals list
+    if category is not None and models is False:                                # If category is NOT None
+      if type(category) is not list and type(category) is not tuple:            # Ensure that category is type list; checking if not list and not tuple
+        category = [category];
+      for c in category:                                                        # Iterate over all values in category
+        vars.append('category');                                                # Append 'category' string to vars list
+        vals.append(c);                                                         # Append input category to vals list
+    if semester is not None:
+      if type(semester) is not list and type(semester) is not tuple:            # Because semYear IS a tuple or list because they are paired, make certain that zeroth element is NOT a list OR tuple. If it is, then already multiple values
+        semester = [semester];                                                  # Convert to list
+      for s in semester:                                                        # Iterate over all values in semYear
+        vars.append('semester');                                                # Append 'semester' string to vars list
+        vals.append(s);                                                         # Append input semester to vals list
+    if year is not None:
+      if type(year) is not list and type(year) is not tuple:                    # Because semYear IS a tuple or list because they are paired, make certain that zeroth element is NOT a list OR tuple. If it is, then already multiple values
+        year = [year];                                                          # Convert to list
+      for y in year:                                                            # Iterate over all values in semYear
+        vars.append('year');                                                    # Append 'year' string to vars list
+        vals.append(y);                                                         # Append input year to vals list
+    
+    
+    if len(vars) == 0:                                                          # If the length of vars is zero
+      cmd = 'SELECT * FROM forecasts';                                          # Set the command to select all forecasts
+    else:                                                                       # Else,
+      whr = self.__buildWhere( vars );                                          # Use the private method to build a where statement for the command
+      cmd = 'SELECT * FROM forecasts {}'.format( whr );                         # Set command with where statment
+    self.cursor.execute(cmd, vals);                                             # Execute the command
+    cols = [i['name'] for i in WxData.forecastCols];
+    indx = ['' for col in cols];
+    for i in WxData.forecastCols:
+      if i['pandas_ind']:
+        indx[ i['pandas_ind_num'] ] = i['name'];
+    indx = [ind for ind in indx if ind != ''];
+    return forecasts( self.cursor.fetchall(), columns = cols, index = indx );   # Return a new forecasts object
+  
+  ##############################################################################
+  def __get_forecasts(self, name = None, school = None, category = None, semester = None, year = None, models = True):
     '''
     Method for getting forecasts from the database
     Keywords:

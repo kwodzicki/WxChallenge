@@ -13,42 +13,42 @@ Descriptions of key/value pairs in the dictionaries below
 '''
 # Columns for data in the WxChallenge resutls table
 resultsCols = [
-  {'name' : 'rank',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'prev',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'change',          'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'name',            'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : False},
-  {'name' : 'school',          'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : False},
-  {'name' : 'category',        'type' : 'INTEGER', 'pandas_col' : False, 'pandas_ind' : False},
-  {'name' : 'abs',             'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'max',             'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'min',             'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'wind',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'precip',          'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'type',            'type' : 'TEXT',    'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'err_max',         'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'err_min',         'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'err_wind',        'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'err_precip',      'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'err_penalty',     'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'err_total',       'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'cum_err_max',     'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'cum_err_min',     'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'cum_err_wind',    'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'cum_err_precip',  'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'cum_err_penalty', 'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'cum_err_total',   'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False}, 
-  {'name' : 'norm_city',       'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'norm_cum',        'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'norm_rank',       'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False}
+  {'name' : 'rank',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'prev',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'change',          'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'name',            'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : True,  'pandas_ind_num' :    6},
+  {'name' : 'school',          'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : True,  'pandas_ind_num' :    0},
+  {'name' : 'category',        'type' : 'INTEGER', 'pandas_col' : False, 'pandas_ind' : True,  'pandas_ind_num' :    5},
+  {'name' : 'abs',             'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'max',             'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'min',             'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'wind',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'precip',          'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'type',            'type' : 'TEXT',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'err_max',         'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'err_min',         'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'err_wind',        'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'err_precip',      'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'err_penalty',     'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'err_total',       'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'cum_err_max',     'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'cum_err_min',     'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'cum_err_wind',    'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'cum_err_precip',  'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'cum_err_penalty', 'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'cum_err_total',   'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}, 
+  {'name' : 'norm_city',       'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'norm_cum',        'type' : 'REAL',    'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'norm_rank',       'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None}
 ];
 
 # Columns for the SQL table containing forcests
 forecastCols = resultsCols + [
-  {'name' : 'date',       'type' : 'DATE',    'pandas_col' : False, 'pandas_ind' : True},
-  {'name' : 'identifier', 'type' : 'TEXT',    'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'day',        'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False},
-  {'name' : 'semester',   'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : False},
-  {'name' : 'year',       'type' : 'INTEGER', 'pandas_col' : False, 'pandas_ind' : False}
+  {'name' : 'date',       'type' : 'DATE',    'pandas_col' : False, 'pandas_ind' : False, 'pandas_ind_num' : None},
+  {'name' : 'identifier', 'type' : 'TEXT',    'pandas_col' : True,  'pandas_ind' : True,  'pandas_ind_num' :    3},
+  {'name' : 'day',        'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : True,  'pandas_ind_num' :    4},
+  {'name' : 'semester',   'type' : 'TEXT',    'pandas_col' : False, 'pandas_ind' : True,  'pandas_ind_num' :    2},
+  {'name' : 'year',       'type' : 'INTEGER', 'pandas_col' : False, 'pandas_ind' : True,  'pandas_ind_num' :    1}
 ];
 
 # Columns for the SQL table containing forecast city schedule

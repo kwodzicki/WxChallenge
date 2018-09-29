@@ -8,12 +8,159 @@ except:
 import pandas;
 import numpy as np;
 
+
+##############################################################################
+def get_level_list(input, levels):
+  '''get list of MultiIndex levels'''
+  lvl_vals = [];
+  for i in range( len(input.index.labels) ):
+    if input.index.names[i] not in levels: continue
+    j = input.index.labels[i][0]
+    lvl_vals.append( input.index.levels[i][j] );
+  return lvl_vals;      
+
+##############################################################################
+def get_indices(values, check):
+  '''get list of MultiIndex levels'''
+  index = np.full( len(values[0]), True );
+  for i in range( len(values) ): index = index & (values[i] == check[i]);
+  return index; 
+  
 ################################################################################
-################################################################################
-################################################################################
-class forecasts( object ):
-  def __init__(self, forecasters):
-    self.forecasters = forecasters;
+class forecasts( pandas.DataFrame ):
+  '''
+  Sub-class of pandas DataFrame that stores all forecast data
+  read in from the SQL database using multidimensional indexing.
+  The index are as follows:
+    school > year > semester > identifier > day > category > name
+  '''
+  def __init__(self, data, columns = None, index = None):
+    '''
+    Name:
+       __init__
+    Purpose:
+       A method to initialize the class
+    Inputs:
+       data : List of data values used to construct the DataFrame
+    Outputs:
+       None.
+    Keywords:
+       columns  : List of names for columns
+       index    : List of columns to use a indices
+    '''
+    pandas.DataFrame.__init__(self, data, columns = columns);                   # Initialize the DataFrame
+    if index is not None:                                                       # If index is NOT None
+      self.set_index( index, inplace=True );                                    # Set columns to use as indices; done inplace
+      self.sort_index( inplace = True );                                        # Sort the data using indices; done inplace
+    self.grades = None;                                                         # Set grades attribute to None;
+  ##############################################################################
+  def get_lvl_vals(self, names = None):
+    data = [];
+    if names is None: names = self.index.names;
+    for name in names: 
+      data.append( self.index.get_level_values( name ) );
+    return data, set( [i for i in zip(*data)] );
+  ##############################################################################
+  def calc_grades(self, model = None):
+    gradeCol, gradeInd = self.gradeColInd();                                    # Get the column and index names to be used in the final grades DataFrame
+    grades = [];                                                                # Initialize a list to store grades during iteration
+    levels = ['school','year','semester','identifier'];                         # List of levels to sort by when iterating
+    stVal, stUNIQ = self.get_lvl_vals( levels );                                # Get complete list of levels and list of unique levels
+    if model is not None:                                                       # If model is NOT None
+      mdVal, mdUNIQ = model.get_lvl_vals( levels[1:] );                         # Get complete list of levels and list of unique levels; don't use the school value
+      if len(stUNIQ) != len(mdUNIQ):                                            # If the length of unique values from the forecasts does NOT match that of the model
+        print( 'Forecaster and model data missmatch!' );                        # Print a message
+        model = None;                                                           # Disable model
+    for stid in stUNIQ:                                                         # Iterate over the unique levels
+      locStat   = get_indices( stVal, stid );                                   # Get location of unique station
+      fcData    = self.loc[ locStat ];                                          # Subset the forecasts using the location
+      schConsen = fcData.index.get_level_values('name') == 'CONSEN';            # Get consensus for the school for the given station
+      schConsen = fcData.loc[ schConsen ];                                      # Get data for consensus for the school
+
+      if model is not None:                                                     # If model is NOT None
+        locStat     = get_indices( mdVal, stid[1:] );                           # Get location of unique station in the model data
+        mdData      = model.loc[ locStat ];                                     # Subset the modeld data using the location
+        mdNames     = mdData.index.get_level_values('name');                    # Get list of level names from the subset data
+        ntlConsen   = mdNames == 'CONSEN';                                      # Get location of national consensus data for the location
+        ntlConsen   = mdData.loc[ ntlConsen ];                                  # Subset national consensus data for the location
+        climatology = mdNames == 'CLIMO0';                                      # Get location of climatology data for the location
+        climatology = mdData.loc[ climatology ];                                # Subset climatology data for the location
+      
+      for fcstr in self.level_iter( 'name', fcData, ['CONSEN'] ):               # Iterate over all the forecasters for the station, skipping consensus
+        numDays = len( fcstr );                                                 # Number of forecast days
+        if numDays == 0: continue;                                              # If there are NO forecasts for the day, continue
+        abse    = climo = sch_con = ntl_con = 0.0;                              # Initialize absence, climatology, school consensus, and national consensus deductions/bonuses to zero (0.0)
+        miss    = fcstr['abs'].values != 0;                                     # Array of boolean values to check absence from game
+        nFcsts  = numDays - miss.sum();                                         # Number of forecasted submitted
+        abse    = -np.clip(miss.sum()-2, 0, None)*14.286;                       # Compute absence deductions; 2 free misses before deductions
+        err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
+        if len(schConsen) == numDays:                                           # If the school consensus data are the same length as the forecaster data
+          sch_con = schConsen['cum_err_total'].values[-1];                      # Get row for the last day of the contest at given city
+          sch_con = 0.5 if err < sch_con else 0.0;                              # If forecaster error is less than school consensus, set sch_con to 0.5, else, set it to 0.0
+        if model is not None:                                                   # If model is NOT none
+          if len(ntlConsen) == numDays:                                         # If the national consensus data are the same length as the forecaster data
+            ntl_con = ntlConsen['cum_err_total'].values[-1];                    # Get cumulative national consensus error on last day of city
+            ntl_con = 1.0 if err < ntl_con else 0.0;                            # If forecaster error is less than national consensus, set ntl_con to 1.0, else, set it to 0.0
+          if len(climatology) == numDays:                                       # If the climatology data ar the same length as the forecaster data
+            fcstErr  = fcstr[      'err_total'].values;                         # Daily error for the forecaster
+            climoErr = climatology['err_total'].values;                         # Daily error for climatology
+            climo    = -6 * sum( (miss == False) & (climoErr < fcstErr) );      # Compute boolean array that is True when forecaster DID forecast but did NOT beat climatology. Sum number of True, multiply by -6
+        score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
+        indVals = get_level_list(fcstr, gradeInd);                              # Get the values for, what will be, the index columns
+        grades.append( indVals+[nFcsts, abse, climo, sch_con, ntl_con, score] );# Append grades to the grades list
+    self.grades = pandas.DataFrame(grades, columns = gradeCol);                 # Initialize DataFrame using grades list and gradeCols for columns
+    if gradeInd is not None:                                                    # If columns to use as indices is NOT None
+      self.grades.set_index(gradeInd, inplace=True);                            # Set columns to use as indices; inplace
+      self.grades.sort_index(inplace=True);                                     # Sort based on index; inplace
+  ##############################################################################
+  def gradeColInd(self):
+    '''
+    Name:
+       gradeColInd
+    Purpose:
+       A method to obtain the column names and index names to use
+       in the grades attribute DataFrame
+    Inputs:
+       None.
+    Outputs:
+       cols : List of column names to use in the grades attribute DataFrame
+       inds : List of column names to be used a indices in grades attr.
+    Keywords:
+       None.
+    '''
+    cols, inds = grd_df_cols, self.index.names;                                 # Initialize columns using grd_df_cols values from data.py and initialize inds using the indices of the self DataFrame 
+    if inds[0] is None:                                                         # If there are no indices currently defined for the self DataFrame
+      inds = None;                                                              # Set inds to None
+    else:                                                                       # Else
+      inds = list(inds); inds.remove('day');                                    # Convert inds to a mutable list and remove the 'day' tag from it
+      cols = inds + cols;                                                       # Set cols to inds + cols
+    return cols, inds;                                                          # Return cols and inds
+  ##############################################################################
+  def name_iter(self, names, data = None):
+    if data is None:
+      for name in names:
+        yield self.loc[ self.index.get_level_values('name') == name ];
+    else:
+      for name in names:
+        yield data[ data.index.get_level_values('name') == name ];
+  ##############################################################################
+  def identifier_iter(self, identifier, data = None):
+    if data is None:
+      for ident in identifier:
+        yield self.loc[ self.index.get_level_values('identifier') == ident ];
+    else:
+      for ident in identifier:
+        yield data[ data.index.get_level_values('identifier') == ident ];
+  ##############################################################################
+  def level_iter(self, level, data = None, skip = []):
+    if data is None:
+      values = self.index.get_level_values(level);
+      for val in values.unique(): 
+        if val not in skip: yield self.loc[ values == val ];
+    else:
+      values = data.index.get_level_values(level);
+      for val in values.unique(): 
+        if val not in skip: yield data[ values == val ];
   ##############################################################################
   def by_school(self, fcst_in = None):
     '''
