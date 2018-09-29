@@ -11,4 +11,4 @@ if __name__ == "__main__":
 
 	inst = WxChallenge();
 	inst.update_Daily( schools = args.schools if len(args.schools) > 0 else None );     
-  inst.close();
+	inst.close();

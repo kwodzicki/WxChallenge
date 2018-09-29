@@ -127,7 +127,7 @@ class forecaster( pandas.DataFrame ):
     '''
     climo, sch_con, ntl_con = 0.0, 0.0, 0.0;                                    # Initialize climo value to zero (0)
     self.grades = pandas.DataFrame(
-      columns=['Days', 'Absence', 'Climo', 'Consen. School', 'Consen. Ntnl', 'Total']
+      columns=['Forecasts', 'Absence', 'Climo', 'Consen. School', 'Consen. Ntnl', 'Total']
     );
 
     if verbose:
@@ -140,7 +140,7 @@ class forecaster( pandas.DataFrame ):
       elif self.is_consen:
         fmt += ' (consensus)'
       print( fmt.format(self.name, self.school, self.semester, self.year) );
-      print( head_FMT.format('','Deductions','Bonus','ID', 'Days', 'Absence','Climo','School','National','Total') )
+      print( head_FMT.format('','Deductions','Bonus','ID', 'Forecasts', 'Absence','Climo','School','National','Total') )
       print( line );
 
     for id in self['identifier'].unique():                                      # Iterate over the unique station identifiers
@@ -148,7 +148,8 @@ class forecaster( pandas.DataFrame ):
       numDays = len(vals);
       if numDays > 0:
         miss    = vals['abs'].values != 0;                                      # Array of boolean values to check absence from game
-        abse    = -np.clip(miss.sum()-2, 0, None)*14.286;                       # Compute absence deductions
+        nFcsts  = numDays - miss.sum();                                         # Number of forecasted submitted
+        abse    = -np.clip(miss.sum()-2, 0, None)*14.286;                       # Compute absence deductions; 2 free misses before deductions
         err     = vals.loc[ vals['day'] == numDays ];                           # Get row for the last day of the contest at given city
         err     = err['cum_err_total'].values[0];                               # Get cumulative error value
         if climatology is not None:                                             # If climatology is not None
@@ -158,8 +159,8 @@ class forecaster( pandas.DataFrame ):
           for cli in climatology:                                               # Iterate over DataFrames in the climatology list
             tmp = cli.loc[ cli['identifier'] == id ];                           # Locate all values for the station
             if len(tmp) > 0: climo_err.append( tmp['err_total'].values );       # If values are found above, then
-          tmp = np.array(climo_err).max(axis=0) < vals['err_total'].values;     # Compute max over the two climatologies
-          climo = -sum(tmp & (miss == False)) * 6;                              # Compute climatology deductions
+#           tmp = np.array(climo_err).max(axis=0) < vals['err_total'].values;     # Compute max over the two climatologies
+#           climo = -sum(tmp & (miss == False)) * 6;                              # Compute climatology deductions
         if sch_consensus is not None:                                           # If sch_consensus is not None
            tmp = sch_consensus.loc[ sch_consensus['identifier'] == id ];        # Locate all values for the station
            if len(tmp) > 0:                                                     # If values are found above, then
@@ -174,9 +175,9 @@ class forecaster( pandas.DataFrame ):
              ntl_con = 1.0 if err < ntl_con else 0.0;                           # If forecaster error is less than national consensus, set ntl_con to 1.0, else, set it to zero
   
         score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
-        self.grades.loc[id] = [numDays, abse, climo, sch_con, ntl_con, score];
+        self.grades.loc[id] = [nFcsts, abse, climo, sch_con, ntl_con, score];
         if verbose:
-          print( row_FMT.format(id,numDays,abse,climo,sch_con,ntl_con,score) );
+          print( row_FMT.format(id,nFcsts,abse,climo,sch_con,ntl_con,score) );
     if verbose:
       print( line );
       print( '{:>55} |{:9.2f}\n'.format('Average', self.grades['Total'].mean()) );

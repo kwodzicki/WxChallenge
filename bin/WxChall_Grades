@@ -1,39 +1,27 @@
 #!/usr/bin/env python
 
-from WxChallenge import WxChallenge;
+from WxChallenge.WxChall_Grades_Excel import WxChall_Grades_Excel;
 
 if __name__ == "__main__":
   import argparse;                                                              # Import library for parsing
   parser = argparse.ArgumentParser(description="WxChallenge Grades");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.add_argument("-v", "--verbose", action='store_true', 
+	  help="Increase verbosity");                                                 # Verbose option at command line
+  parser.add_argument("-o", "--outdir", type=str, 
+	  help="Output directory for SpreadSheets. Default is home directory");       # Verbose option at command line
   parser.add_argument("schools", type=str, nargs='*', 
-	  help="School code(s). Only data for these schools will be scraped"); 
-  parser.add_argument("-s", "--semester", type=str, 
-	  help="Semester to score; fall or spring"); 
-  parser.add_argument("-y", "--year", type=int, 
-	  help="Year to score; should be used with semester"); 
-  args = parser.parse_args();                                                   # Parse the arguments
-  if len(args.schools) == 0: args.schools = None
-  inst  = WxChallenge();
-  fcsts = inst.get_forecasts( 
-    school   = args.schools,
-    semester = args.semester,
-    year     = args.year
-  );
-  if fcsts is None:
-    print( 'No forecasts found!' );
-    exit(1);
-  consensus, climo = {}, [];
-  for f in fcsts:
-    if f.is_climo:
-      if not any( [c == f for c in climo] ): climo.append(f);
-    elif f.is_consen and f.school not in consensus:
-      consensus[f.school] = f;
+	  help="School code(s). Only data for these schools will be scraped");        # Schools option at command line
+  parser.add_argument("semester", type=str, 
+	  help="Semester to score; fall or spring");                                  # Semester option at command line
+  parser.add_argument("year", type=int, 
+	  help="Year to score; should be used with semester");                        # Year option at command line
+  parser.add_argument("roster", type=str, 
+	  help="Path to CSV roster file");                                            # Semester option at command line
 
-  for f in fcsts:
-    f.calc_grade(
-      climatology    = climo,
-      sch_consensus  = consensus[f.school],
-      ntnl_consensus = consensus['xxx'],
-      verbose        = True
-    );
-  inst.close();
+  args = parser.parse_args();                                                   # Parse the arguments
+  if len(args.schools) == 0: args.schools = None;                               # If the length of schools argument is zero, then set to None
+  inst = WxChall_Grades_Excel( args.semester, args.year, args.roster,
+    school   = args.schools,
+    verbose  = args.verbose,
+    outdir   = args.outdir);
+  inst.grades();

@@ -63,3 +63,10 @@ scheduleCols = [{'name' : 'city',  'type' : 'TEXT'},
 #  check some more data to see if the forecast should be updated. Else, the forecast 
 #  is inserted into the table
 fcstChckCols = [ 'name', 'school', 'category', 'date' ];
+
+# Column names for some important data in the roster CSV that are used
+# in the WxChall_Grades_Excel class
+fcst_tag  = 'forecaster_id';
+fname_tag = 'first_name';
+lname_tag = 'last_name';
+class_tag = ['class_id_1', 'class_id_2'];
