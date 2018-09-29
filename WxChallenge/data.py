@@ -70,3 +70,6 @@ fcst_tag  = 'forecaster_id';
 fname_tag = 'first_name';
 lname_tag = 'last_name';
 class_tag = ['class_id_1', 'class_id_2'];
+
+# Column names for the grades dataframe
+grd_df_cols = ['Forecasts', 'Absence', 'Climo', 'Consen. School', 'Consen. Ntnl', 'Total']

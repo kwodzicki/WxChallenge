@@ -1,8 +1,10 @@
 # Import column naming data
 try:
   from data import forecastCols as cols;
+  from data import grd_df_cols;
 except:
   from .data import forecastCols as cols;
+  from .data import grd_df_cols;
 import pandas;
 import numpy as np;
 
@@ -126,9 +128,7 @@ class forecaster( pandas.DataFrame ):
        ntnl_consensus : Forecaster instance for national consensus
     '''
     climo, sch_con, ntl_con = 0.0, 0.0, 0.0;                                    # Initialize climo value to zero (0)
-    self.grades = pandas.DataFrame(
-      columns=['Forecasts', 'Absence', 'Climo', 'Consen. School', 'Consen. Ntnl', 'Total']
-    );
+    self.grades = pandas.DataFrame( columns = grd_df_cols );
 
     if verbose:
       head_FMT = '{:12}|{:^21}|{:^21}|\n{:5}| {:^4} |{:^10}|{:^10}|{:^10}|{:^10}|{:^10}';

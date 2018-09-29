@@ -1,14 +1,13 @@
-#!/usr/bin/env python
-
 import os, xlwt;
 from pandas import read_csv;
 from WxChallenge import WxChallenge;
 from WxChallenge.utils import fix_Roster_CSV;
-from WxChallenge.data import fcst_tag, fname_tag, lname_tag, class_tag;
+from WxChallenge.data import fcst_tag, fname_tag, lname_tag, class_tag, grd_df_cols;
 
 home   = os.path.expanduser( '~' );
 outDir = os.path.join( home, 'WxChall_Grades')
 
+################################################################################
 class ExcelBook( xlwt.Workbook ):
   def __init__(self, file):
     xlwt.Workbook.__init__(self, encoding="utf-8");
@@ -18,32 +17,30 @@ class ExcelBook( xlwt.Workbook ):
     self.ids    = []  
     self.sheets = {}
   ##############################################################################
-  def addSheet(self, sheetName, columns = None):
+  def addSheet(self, sheetName):
     if sheetName not in self.sheets:
       self.sheets[sheetName] = {
         'id'   : self.add_sheet(sheetName),
         'row'  : 1
       };    
-      if columns is not None:
-        for i in range( len(columns) ):
-          self.sheets[sheetName]['id'].write(0, i, columns[i]);
-    return self.sheets[sheetName];
+      columns = ['last name', 'first name'] + grd_df_cols
+      for i in range( len(columns) ):
+        self.sheets[sheetName]['id'].write(0, i, columns[i]);
   ##############################################################################
-  def addData(self, sheetName, values):
-    self.sheets[sheetName] = {
-      'id'   : self.add_sheet(sheetName),
-      'row'  : 1
-    };    
-    for i in range( len(columns) ):
-      self.sheets[sheetName]['id'].write(0, i, columns[i]);
-    return self.sheets[sheetName];
-
+  def addData(self, sheetName, fcstIndex, values):
+    values = [self.lnames[fcstIndex], self.fnames[fcstIndex]] + values.tolist();
+    for col in range( len(values) ):                                            # Iterate over all values in values list
+      self.sheets[sheetName]['id'].write(
+        self.sheets[sheetName]['row'], col, values[col]
+      );                                                                        # Write the data to the SpreadSheet
+    self.sheets[sheetName]['row'] += 1;                                         # Increment the row by 1
   ##############################################################################
   def saveBook(self):
     dir = os.path.dirname( self.file );                                         # Parent directory of file path
     if not os.path.isdir( dir ): os.makedirs( dir );                            # If the output directory does NOT exist, create it
     self.save( self.file );                                                     # Save the Workbook object to a file
   
+################################################################################
 class WxChall_Grades_Excel( object ):
   '''
   A class for computing grades and output to Excel SpreadSheets.
@@ -145,11 +142,7 @@ class WxChall_Grades_Excel( object ):
     Keywords:
        None.
     '''
-    if not os.path.isdir( self.outDir ): os.makedirs( self.outDir );            # If the output directory does NOT exist, create it
-    for key in self.classes:                                                    # Iterate over all the keys in the classes dictionary
-      if os.path.isfile( self.classes[key]['file'] ):                           # If the output file exists
-        os.remove( self.classes[key]['file'] );                                 # Delete it
-      self.classes[key]['book'].save( self.classes[key]['file'] );              # Save the Workbook object to a file
+    for key in self.classes: self.classes[key].saveBook();                      # Iterate over all the keys in the classes dictionary and save the books
   ##############################################################################
   def updateSpreadSheets(self, fcstr):
     '''
@@ -167,17 +160,11 @@ class WxChall_Grades_Excel( object ):
     '''
     if len(self.classes) == 0: return None;                                     # If there is no classes data, return
     for cls in self.classes:                                                    # Iterate over all classes in the classes dictionary
-      if fcstr.name in self.classes[cls]['ids']:                                # If the forecaster is in one of the classes
-        id = self.classes[cls]['ids'].index( fcstr.name );                      # Get the index for the forecaster in the list of forecasters for the class
+      if fcstr.name in self.classes[cls].ids:                                   # If the forecaster is in one of the classes
+        id = self.classes[cls].ids.index( fcstr.name );                         # Get the index for the forecaster in the list of forecasters for the class
         for city in fcstr.grades.index:                                         # Iterate over all cities (rows) of the forecaster's grades
-          sheet = self.__addSheet2Book(cls, city, fcstr);                       # Use a method to get the Sheet to write data to; 
-          sheet['id'].write( sheet['row'], 0, self.classes[cls]['lnames'][id] );# Write the last name to the 1st (zeroth) column
-          sheet['id'].write( sheet['row'], 1, self.classes[cls]['fnames'][id] );# Write the first name to the 2nd (first) column
-          col = 2;                                                              # Set column counter to 2
-          for info in fcstr.grades.columns:                                     # Iterate over all columns in the grades dataframe for the forecaster
-            sheet['id'].write(sheet['row'], col, fcstr.grades.loc[city][info]); # Write the data to the SpreadSheet
-            col += 1;                                                           # Increment the column index
-          sheet['row'] += 1;                                                    # Increment the row index for the given sheet
+          self.classes[cls].addSheet( city );                                   # Add new sheet to the Excel book if one does NOT exist
+          self.classes[cls].addData( city, id, fcstr.grades.loc[city] );        # Add data to the sheet
   ##############################################################################
   def getClassInfo( self, csvfile ):
     '''
@@ -185,22 +172,7 @@ class WxChall_Grades_Excel( object ):
        getClassInfo
     Purpose:
        A method to parse data from the roster CSV and generate
-       a dictionary with the following layout:
-         classes = { 
-           'Class name key' : { 
-             'fnames' : [list of first names],
-             'lnames' : [list of last names],
-             'ids'    : [forecaster ids]',
-             'file'   : Full path to output file
-             'book'   : xlwt.Workbook instance for class,
-             'sheets' : {
-               'Forecast city id' : {
-                 'id'  : handle returned by book.add_sheet() method,
-                 'row' : integer specifying current row in the sheet
-               }
-             }  
-           }
-         }
+       a ExcelBook object for each class
     Inputs:
        csvfile  : Full path to the roster CSV file
     Ouputs:
@@ -218,34 +190,14 @@ class WxChall_Grades_Excel( object ):
         for cls in roster[col].unique():                                        # Iterate over the unique values in the column
           if 'NO CLASS' in cls.upper(): continue;                               # Skip the 'No Class' class
           if cls not in classes:                                                # If the cls key is NOT in the classes dictionary,
-            xlsFile  = os.path.join(self.outDir, '_'.join( cls.split() ) );     # Generate file path for XLS file
-            xlsFile += '.xls';
-            classes[cls] = {  
-              'fnames' : [],
-              'lnames' : [],
-              'ids'    : [],  
-              'file'   : xlsFile,  
-              'book'   : xlwt.Workbook(encoding="utf-8"),
-              'sheets' : {}
-            };                                                                  # Initialize dictionary under key
+            xlsFile = '{}.xls'.format(  '_'.join( cls.split() ) );              # Base name for the Excel file
+            xlsFile = os.path.join( self.outDir, xlsFile );                     # Full path for the file
+            classes[cls] = ExcelBook( xlsFile );                                # Initialize ExcelBook object
       for col in class_tag:                                                     # Iterate over the columns to sort students into classes
         for cls in classes:                                                     # Iterate over all tags in the classes dictionary
           tmp = roster.loc[ roster[col] == cls ];                               # Locate all rows where the class matches
           if len(tmp) > 0:                                                      # If rows located
-            classes[cls]['ids']    += tmp[fcst_tag].values.tolist();            # Append forecaster id list to 'names' tag
-            classes[cls]['fnames'] += tmp[fname_tag].values.tolist();           # Append forecaster id list to 'names' tag
-            classes[cls]['lnames'] += tmp[lname_tag].values.tolist();           # Append forecaster id list to 'names' tag
+            classes[cls].ids    += tmp[fcst_tag].values.tolist();               # Append forecaster id list to 'names' tag
+            classes[cls].fnames += tmp[fname_tag].values.tolist();              # Append forecaster id list to 'names' tag
+            classes[cls].lnames += tmp[lname_tag].values.tolist();              # Append forecaster id list to 'names' tag
     return classes;                                                             # Return the classes dictionary
-  ##############################################################################
-  def __addSheet2Book(self, cls, city, fcstr):
-    if city not in self.classes[cls]['sheets']:
-      self.classes[cls]['sheets'][city] = {
-        'id'  : self.classes[cls]['book'].add_sheet( city ),
-        'row' : 1
-      }
-      tmp = self.classes[cls]['sheets'][city];
-      tmp['id'].write(0, 0, 'last name');
-      tmp['id'].write(0, 1, 'first name');
-      cols = fcstr.grades.columns;
-      for col in range( len(cols) ): tmp['id'].write(0, col+2, cols[col]);
-    return self.classes[cls]['sheets'][city];
