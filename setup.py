@@ -9,9 +9,9 @@ setuptools.setup(
   url              = "https://github.com/kwodzicki/WxChallenge",
   author           = "Kyle R. Wodzicki",
   author_email     = "krwodzicki@gmail.com",
-  version          = "0.1.5",
+  version          = "0.1.6",
   packages         = setuptools.find_packages(),
-  install_requires = [ "bs4", "lxml", "numpy", "pandas", "xlwt" ],
+  install_requires = [ "bs4", "lxml", "numpy", "pandas", "openpyxl" ],
   scripts          = ['bin/WxChall_Daily_Update'],
   zip_safe = False
 );
