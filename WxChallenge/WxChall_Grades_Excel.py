@@ -4,8 +4,14 @@ from openpyxl import Workbook;
 from openpyxl.utils import get_column_letter as col2letter;
 from pandas import read_csv;
 from WxChallenge import WxChallenge;
-from WxChallenge.utils import fix_Roster_CSV;
-from WxChallenge.data import fcst_tag, fname_tag, lname_tag, class_tag, grd_df_cols;
+
+try:
+  from utils import fix_Roster_CSV;
+  from data import fcst_tag, fname_tag, lname_tag, class_tag, grd_df_cols;
+except:
+  from .utils import fix_Roster_CSV;
+  from .data import fcst_tag, fname_tag, lname_tag, class_tag, grd_df_cols;
+
 
 ################################################################################
 class ExcelBook( Workbook ):
