@@ -12,7 +12,8 @@ setuptools.setup(
   version          = "0.2.2",
   packages         = setuptools.find_packages(),
   install_requires = [ "bs4", "lxml", "numpy", "pandas", "openpyxl" ],
-  scripts          = ['bin/WxChall_Daily_Update',
+  scripts          = ['bin/WxChall_Daily_Update'
+                      'bin/WxChall_Semester_Update',
                       'bin/WxChall_Grades'],
   zip_safe = False
 );
