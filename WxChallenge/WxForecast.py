@@ -113,6 +113,33 @@ class forecasts( pandas.DataFrame ):
       self.grades.set_index(gradeInd, inplace=True);                            # Set columns to use as indices; inplace
       self.grades.sort_index(inplace=True);                                     # Sort based on index; inplace
   ##############################################################################
+  def iterForecasters(self, grades = False):
+    '''
+    Name:
+       interForecasters
+    Purpose:
+       A method to create a generator that iterates over all unique
+       forecasters in the DataFrame, returning a forecaster instance
+       containing all the data associated with that forecaster
+    Inputs:
+       None.
+    Outputs:
+       Yields a forecaster instance
+    Keywords:
+       grades : Set to return forecaster instance containing grades.
+                 Default is to return instance containing raw scores.
+    '''
+    if grades:
+      names = self.grades.index.get_level_values( 'name' );                     # Get all unique forecaster names
+    else:
+      names = self.index.get_level_values( 'name' );                            # Get all unique forecaster names
+    namesUNIQ = names.unique();
+    for name in namesUNIQ:
+      if grades:
+        yield forecaster( self.grades.loc[ names == name ], name, grades);
+      else:
+        yield forecaster( self.loc[ names == name ], name, grades );
+  ##############################################################################
   def gradeColInd(self):
     '''
     Name:
@@ -206,8 +233,6 @@ class forecasts( pandas.DataFrame ):
     
     
 ################################################################################
-################################################################################
-################################################################################
 class forecaster( pandas.DataFrame ):
   _categories = {0 : 'Professional', 
                  1 : 'Faculty/Staff/Post-Doc',
@@ -215,121 +240,37 @@ class forecaster( pandas.DataFrame ):
                  3 : 'Junior/Senior',
                  4 : 'Freshman/Sophomore'}
 
-  def __init__(self, data = None, index = None, columns = None, dtype = None, copy = False,
-    name = None, school = None, category = None, semester = None, year = None):
+  def __init__(self, data = None, name = None, grades = False):
 
     pandas.DataFrame.__init__(self, 
-      data    = data, 
-      index   = index,  
-      columns = [i['name'] for i in cols if i['pandas_col']] if columns is None else columns,
-      dtype   = dtype,
-      copy    = copy
+      data    = data
     );
 
     self.name      = name;
-    self.category  = category;
-    self.school    = school;
-    self.semester  = semester;
-    self.year      = year;
-    self.grades    = None;
-    self.is_climo  = 'CLIMO' in name.upper();
-    self.is_model  = category == 8;
-    self.is_consen = category == 9;
-    
-#     for i in range(len(cols)):                                                  # Iterate over forecast data column names
-#       if cols[i]['name'] == 'date': self.__dateid = i;                          # Locate the date column
-#       if not hasattr(self, cols[i]['name']): setattr(self, cols[i]['name'], []);# Initialize attribute with forecast date column name as empty list
-    
+    self.category  = self.index.get_level_values('category'  ).values[0];
+    self.school    = self.index.get_level_values('school'    ).values[0];
+    self.semester  = self.index.get_level_values('semester'  ).values[0];
+    self.year      = self.index.get_level_values('year'      ).values[0];
+    self.is_grades = grades;
+    self.is_climo  = 'CLIMO' in self.name.upper();
+    self.is_model  = self.category == 8;
+    self.is_consen = self.category == 9;
+        
   ##############################################################################
-  def add_forecast(self, forecast_data):
+  def getCities(self):
     '''
-    Method to append forecast data to lists of forecast data.
-    Inputs:
-      forecast_data : List of forecast data for one forecast. 
-                       Ideally this data has been returned by 
-                       an SQL query.
-    Outputs:
-      Returns False if forecast is not for forecaster represented by class.
-      Returns True if data was added.
-    '''
-    if len(forecast_data) != len(cols): 
-      raise Exception('Data is not the correct length!');                       # Raise exception if data is not correct length
-    if not self.__check_forecast(forecast_data): return False;                  # If forecast is NOT for the forecaster represented by this class, return False
-    data = {};
-    for i in range( len(forecast_data) ):                                       # Iterate over all columns
-      if cols[i]['name'] == 'date': name = forecast_data[i];
-      if cols[i]['pandas_col']: data[ cols[i]['name'] ] = forecast_data[i];
-    self.loc[ name ] = data;
-    self.sort_index(inplace=True);
-    return True;                                                                # Return True
-  ##############################################################################
-  def calc_grade(self, climatology = None, sch_consensus = None, ntnl_consensus = None, verbose = False):
-    '''
+    Name:
+       getCities
     Purpose:
-       Method for computing grade for forecaster.
+       A method to return all unique city names for the forecaster
     Inputs:
        None.
+    Outputs:
+       Returns a numpy ndarray containing unique city identifiers
     Keywords:
-       climatology    : Single, or list of forecaster instance for climatology(ies)
-       sch_consensus  : Forecaster instance for school consensus
-       ntnl_consensus : Forecaster instance for national consensus
+       None.
     '''
-    climo, sch_con, ntl_con = 0.0, 0.0, 0.0;                                    # Initialize climo value to zero (0)
-    self.grades = pandas.DataFrame( columns = grd_df_cols );
-
-    if verbose:
-      head_FMT = '{:12}|{:^21}|{:^21}|\n{:5}| {:^4} |{:^10}|{:^10}|{:^10}|{:^10}|{:^10}';
-      row_FMT  = '{:5}| {:4} |{:9.2f} |{:9.2f} |{:9.2f} |{:9.2f} |{:9.2f}';
-      fmt      = 'Name: {}    School: {}   Semester: {} {}'
-      line     = ''.join( ['-'] * 68 )
-      if self.is_model: 
-        fmt += ' (model)'
-      elif self.is_consen:
-        fmt += ' (consensus)'
-      print( fmt.format(self.name, self.school, self.semester, self.year) );
-      print( head_FMT.format('','Deductions','Bonus','ID', 'Forecasts', 'Absence','Climo','School','National','Total') )
-      print( line );
-
-    for id in self['identifier'].unique():                                      # Iterate over the unique station identifiers
-      vals    = self.loc[ self['identifier'] == id ];                           # Locate all the rows with the identifier
-      numDays = len(vals);
-      if numDays > 0:
-        miss    = vals['abs'].values != 0;                                      # Array of boolean values to check absence from game
-        nFcsts  = numDays - miss.sum();                                         # Number of forecasted submitted
-        abse    = -np.clip(miss.sum()-2, 0, None)*14.286;                       # Compute absence deductions; 2 free misses before deductions
-        err     = vals.loc[ vals['day'] == numDays ];                           # Get row for the last day of the contest at given city
-        err     = err['cum_err_total'].values[0];                               # Get cumulative error value
-        if climatology is not None:                                             # If climatology is not None
-          climo_err = [];                                                       # Initialize climo_err as a list
-          if type(climatology) is not list and type(climatology) is not tuple:  # If climatology is NOT list and it is NOT tuple
-            climatology = [climatology];                                        # Convert it to a list
-          for cli in climatology:                                               # Iterate over DataFrames in the climatology list
-            tmp = cli.loc[ cli['identifier'] == id ];                           # Locate all values for the station
-            if len(tmp) > 0: climo_err.append( tmp['err_total'].values );       # If values are found above, then
-#           tmp = np.array(climo_err).max(axis=0) < vals['err_total'].values;     # Compute max over the two climatologies
-#           climo = -sum(tmp & (miss == False)) * 6;                              # Compute climatology deductions
-        if sch_consensus is not None:                                           # If sch_consensus is not None
-           tmp = sch_consensus.loc[ sch_consensus['identifier'] == id ];        # Locate all values for the station
-           if len(tmp) > 0:                                                     # If values are found above, then
-             tmp     = tmp.loc[ tmp['day'] == max( tmp['day'] ) ];              # Get row for the last day of the contest at given city
-             sch_con = tmp['cum_err_total'].values[0];                          # Get cumulative error value
-             sch_con = 0.5 if err < sch_con else 0.0;                           # If forecaster error is less than school consensus, set sch_con to 0.5, else, set it to zero
-        if ntnl_consensus is not None:                                          # If ntnl_consensus is not None
-           tmp = ntnl_consensus.loc[ ntnl_consensus['identifier'] == id ];      # Locate all values for the station
-           if len(tmp) > 0:                                                     # If values are found above, then
-             tmp     = tmp.loc[ tmp['day'] == max( tmp['day'] ) ];              # Get row for the last day of the contest at given city
-             ntl_con = tmp['cum_err_total'].values[0];                          # Get cumulative error value
-             ntl_con = 1.0 if err < ntl_con else 0.0;                           # If forecaster error is less than national consensus, set ntl_con to 1.0, else, set it to zero
-  
-        score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
-        self.grades.loc[id] = [nFcsts, abse, climo, sch_con, ntl_con, score];
-        if verbose:
-          print( row_FMT.format(id,nFcsts,abse,climo,sch_con,ntl_con,score) );
-    if verbose:
-      print( line );
-      print( '{:>55} |{:9.2f}\n'.format('Average', self.grades['Total'].mean()) );
-    return self.grades['Total'].mean()
-             
+    return self.index.get_level_values('identifier').unique().values;           # Get all 'identifier' values, find just unique, then get the values and return
   ##############################################################################
   def __check_forecast(self, data):
     '''

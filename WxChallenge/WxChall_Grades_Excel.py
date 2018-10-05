@@ -80,6 +80,7 @@ class ExcelBook( Workbook ):
     Keywords:
        None.
     '''
+    self.addSheet( sheetName );
     values = fcstr[1:] + values.tolist();                                       # Set list of values to write to the sheet
     for col in range( len(values) ):                                            # Iterate over all values in values list
       self[sheetName].cell( self._rows[sheetName], col+1, values[col] );        # Write the data to the SpreadSheet
@@ -162,7 +163,7 @@ class WxChall_Grades_Excel( object ):
   in the roster. In each class SpreadSheet there will be a
   sheet for each forecast city.
   '''
-  def __init__(self, semester, year, roster, school=None, verbose=False, outdir=None):
+  def __init__(self, semester, year, roster, school=None, verbose=False):
     '''
     Name:
        __init___
@@ -181,21 +182,16 @@ class WxChall_Grades_Excel( object ):
        outdir   : Top level output directory for SpreadSheet files.
                     Default is same location as roster file
     '''
-    inst  = WxChallenge();                                                      # Initialize the WxChallenge
-    self.fcsts = inst.get_forecasts( 
-      school   = school,
-      semester = semester,
-      year     = year
-    );                                                                          # Get forecasts based on command line arguments
-    inst.close();                                                               # Close SQL database
-    if self.fcsts is None:                                                      # If no forecasts returned
-      print( 'No forecasts found!' );                                           # Print a message
-      return False;                                                             # Exit
-    self.outdir = os.path.dirname( roster ) if outdir is None else outdir;      # Set output directory based on roster CSV path if no outdir specified
-    self.verbose = verbose;
-    self.Workbooks = self.initWorkbooks( roster );                              # Parse data from roster CSV
+    self.wx  = WxChallenge();                                                      # Initialize the WxChallenge
+    self.semester  = semester
+    self.year      = year
+    self.roster    = roster
+    self.school    = school
+    self.verbose   = verbose;
+    self.outdir    = None;
+    self.Workbooks = None;                            # Parse data from roster CSV
   ##############################################################################
-  def grades(self):
+  def grades(self, outdir = None):
     '''
     Name:
        grades
@@ -209,14 +205,25 @@ class WxChall_Grades_Excel( object ):
     Keywords:
        None.
     '''
-    consensus, climo = self.getConsensClimo();                                  # Get consensus and climatology data
-    for f in self.fcsts:                                                        # Iterate over all the forecasts again
-      g = f.calc_grade(
-        climatology    = climo,
-        sch_consensus  = consensus[f.school],
-        ntnl_consensus = consensus['xxx'],
-        verbose        = self.verbose
-      );                                                                        # Calculate the grade for a forecaster  
+    self.outdir    = os.path.dirname(self.roster) if outdir is None else outdir;
+    self.Workbooks = self.initWorkbooks( self.roster );
+    fcsts = self.wx.get_forecasts( 
+      school   = self.school,
+      semester = self.semester,
+      year     = self.year
+    );                                                                          # Get forecasts based on command line arguments
+
+    if len(fcsts) == 0:                                                           # If no forecasts returned
+      print( 'No forecasts found!' );                                           # Print a message
+      return False;                                                             # Exit
+    model = self.wx.get_forecasts( 
+      school   = self.school,
+      semester = self.semester,
+      year     = self.year,
+      models   = True
+    );                                                                          # Get forecasts based on command line arguments
+    fcsts.calc_grades( model )
+    for f in fcsts.iterForecasters(grades = True):                             # Iterate over all the forecasts again
       self.updateSpreadSheets( f );                                             # Call method to update the spreadsheets with the current forecaster's grades
     self.saveSpreadSheets();                                                    # Save all the spreadsheets
   ##############################################################################
@@ -277,9 +284,12 @@ class WxChall_Grades_Excel( object ):
     for cls in self.Workbooks:                                                  # Iterate over all Workbooks in the Workbooks dictionary
       info = self.Workbooks[cls].fcstrExist( fcstr.name );                      # Check if the forecaster should be in the given Workbook
       if info:                                                                  # If the forecaster is in one of the Workbooks
-        for city in fcstr.grades.index:                                         # Iterate over all cities (rows) of the forecaster's grades
-          self.Workbooks[cls].addSheet( city );                                 # Add new sheet to the Excel book if one does NOT exist
-          self.Workbooks[cls].addData( city, info, fcstr.grades.loc[city] );    # Add data to the sheet
+        cities = fcstr.getCities();                                             # Get list of all cities for the forecaster
+        for city in cities:                                                     # Iterate over all cities (rows) of the forecaster's grades
+          values = fcstr.loc[city == cities].values;                            # Get values for data in city
+          if values.shape[0] == 1:
+            values = values.flatten();
+            self.Workbooks[cls].addData( city, info, values );                    # Add data to the sheet
   ##############################################################################
   def initWorkbooks( self, csvfile ):
     '''
