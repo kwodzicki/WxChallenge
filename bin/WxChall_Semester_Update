@@ -13,9 +13,9 @@ if __name__ == "__main__":
 	  help="Year to update. MUST be used with semester."); 
 
 	args = parser.parse_args();                                                   # Parse the arguments
-  if args.semester is None or args.year is None:
-    args.semester = None;
-    args.year     = None;
+	if args.semester is None or args.year is None:
+	  args.semester = None;
+	  args.year     = None;
 	inst = WxChallenge();
 	inst.update_Semester( 
 	  semester = args.semester,
