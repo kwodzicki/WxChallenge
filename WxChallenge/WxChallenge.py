@@ -26,7 +26,7 @@ class WxChallenge( WxChall_SQLite ):
     self.verbose = verbose;
 
   ###########################################################################
-  def update_Semester(self, semester, year, schools = None):
+  def update_Semester(self, semester = None, year = None, schools = None):
     '''
     Name:
        update_Semester
@@ -34,15 +34,21 @@ class WxChallenge( WxChall_SQLite ):
        A method to download data from the WxChallenge.com
        for a given semester in a given year.
     Inputs:
-       semester : Semester (spring, fall) to download, string
-       year     : Year to download, int
+       None.
     Ouputs:
        True/False
     Keywords:
+       semester : Semester (spring, fall) to download, string.
+                   Default is current semester based on today's date
+       year     : Year to download, int
+                   Default is current year based on today's date
        school   : School code; only get data from this school
     Author and History:
        Kyle R. Wodzicki     Created 29 Aug. 2018
     '''      
+    if semester is None or year is None:
+      year     = self._date.year;
+      semester = getSemester(self._date)
     tag = '{}:{}'.format(semester, year);                                       # Define tag for indexing _schedule
     if tag not in self._schedule:                                              # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
       err = 'Error finding {} {} in the forecast schedule'.format(semester, year);
