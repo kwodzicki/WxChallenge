@@ -7,9 +7,9 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="WxChallenge Semester Update");     # Set the description of the script to be printed in the help doc, i.e., ./script -h
 	parser.add_argument("schools", type=str, nargs='*', 
 	  help="School code(s). Only data for these schools will be scraped"); 
-	parser.add_argument("-s", "--semester" type=str, 
+	parser.add_argument("-s", "--semester", type=str, 
 	  help="Semester to update. MUST be used with year."); 
-	parser.add_argument("-y", "--year" type=int, 
+	parser.add_argument("-y", "--year", type=int, 
 	  help="Year to update. MUST be used with semester."); 
 
 	args = parser.parse_args();                                                   # Parse the arguments
