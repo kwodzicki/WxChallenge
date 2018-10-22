@@ -61,6 +61,7 @@ class WxChallenge( WxChall_SQLite ):
       year, semester, identifiers, days, schools = schools
     );
     for i in range(len(urls)):                                                  # Iterate over all urls
+      if self.verbose: print( urls[i] )
       soup = checkURL(urls[i]);                                                 # Download the HTML
       if soup:                                                                  # If data download was successful 
         table   = soup.find('table');                                           # Find the table in the parsed data
