@@ -91,8 +91,9 @@ class forecasts( pandas.DataFrame ):
         if numDays == 0: continue;                                              # If there are NO forecasts for the day, continue
         abse    = climo = sch_con = ntl_con = 0.0;                              # Initialize absence, climatology, school consensus, and national consensus deductions/bonuses to zero (0.0)
         miss    = fcstr['abs'].values != 0;                                     # Array of boolean values to check absence from game
-        nFcsts  = numDays - miss.sum();                                         # Number of forecasted submitted
-        abse    = -np.clip(miss.sum()-2, 0, None)*14.286;                       # Compute absence deductions; 2 free misses before deductions
+        nmiss   = miss.max();                                                   # Get the number of missed forecasts; the maximum number from the abs column
+        nFcsts  = numDays - nmiss;                                              # Number of forecasted submitted
+        abse    = -np.clip(nmiss-2, 0, None)*14.286;                            # Compute absence deductions; 2 free misses before deductions
         err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
         if len(schConsen) == numDays:                                           # If the school consensus data are the same length as the forecaster data
           sch_con = schConsen['cum_err_total'].values[-1];                      # Get row for the last day of the contest at given city
