@@ -1,29 +1,25 @@
 #!/usr/bin/env python
-import os;
-import numpy as np;
-from datetime import date, timedelta;
+
+from datetime import timedelta;
 # Handle both Python2 and Python3
 try:
   from WxChall_SQLite import WxChall_SQLite;
-  from utils import checkURL, updateSchedule, getSemester;
-  from parsers import parse_schedule, parse_results_head, parse_results_body, parse_results_foot;
+  from utils import checkURL, getSemester;
+  from parsers import parse_results_head, parse_results_body, parse_results_foot;
+  from WxChall_URLs import WxChall_URLs;
 except:
   from .WxChall_SQLite import WxChall_SQLite;
-  from .utils import checkURL, updateSchedule, getSemester;
-  from .parsers import parse_schedule, parse_results_head, parse_results_body, parse_results_foot;
+  from .utils import checkURL, getSemester;
+  from .parsers import parse_results_head, parse_results_body, parse_results_foot;
+  from .WxChall_URLs import WxChall_URLs;
   
+URLs = WxChall_URLs();
 
 class WxChallenge( WxChall_SQLite ):
-  URL        = 'http://wxchallenge.com';
   def __init__(self, verbose = False):
-    self._date        = date.today();
-    WxChall_SQLite.__init__(self);
+    WxChall_SQLite.__init__(self, verbose = verbose);
     self._header      = None;
     self._forecasters = None;
-    self._schedule    = self.get_schedule();
-    if len(self._schedule) == 0: 
-      self.download_Schedule(all=True);
-    self.verbose = verbose;
 
   ###########################################################################
   def update_Semester(self, semester = None, year = None, schools = None):
@@ -47,8 +43,8 @@ class WxChallenge( WxChall_SQLite ):
        Kyle R. Wodzicki     Created 29 Aug. 2018
     '''      
     if semester is None or year is None:
-      year     = self._date.year;
-      semester = getSemester(self._date)
+      year     = self.__schedule.date;
+      semester = getSemester(self._schedule.date)
     tag = '{}:{}'.format(semester, year);                                       # Define tag for indexing _schedule
     if tag not in self._schedule:                                              # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
       err = 'Error finding {} {} in the forecast schedule'.format(semester, year);
@@ -140,7 +136,7 @@ class WxChallenge( WxChall_SQLite ):
     Keywords:
        schools     : School code(s)
     '''
-    date     = self._date - timedelta(days=3);                                  # Set date to 3 days before today's date
+    date     = self._schedule.date - timedelta(days=3);                         # Set date to 3 days before today's date
     semester = getSemester( date );                                             # Get semester; i.e., spring or fall
     tag = '{}:{}'.format(semester, date.year);                                  # Define tag for indexing _schedule
     if tag not in self._schedule:                                               # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
@@ -199,48 +195,13 @@ class WxChallenge( WxChall_SQLite ):
           out_id, out_day = identifier, day;                                    # Determine the forecast day
           break;                                                                # Break the loop
     return out_id, out_day;                                                     # Determine the forecast day
-  ##############################################################################
-  def download_Schedule(self, year = None, all = False):
-    '''
-    A method to get the current; or previous, forecase schedule.
-    If year is used, assumed to be year of Fall semester, so will
-    get schedule for year/year+1 season.
-    '''
-    if all:
-      self._schedule = {};
-      year = [y for y in range(2006, self._date.year)]
-    
-    if year is None or all:                                                     # If year is None (i.e., no year input) OR all is True
-      url  = '{}/challenge/schedule.php'.format(self.URL);                      # Set up url
-      soup = checkURL(url);                                                     # Attempt to get data
-      if soup:
-        table = soup.find_all('table')[-1];                                     # Find the table in the parsed data
-        self._schedule.update( parse_schedule(table) );                         # Parse the schedule
-      if not all:                                                               # If all is NOT set
-        self.update_schedule( self._schedule );
-        return;
-    elif not isinstance(year, list):                                            # Else, if year is not list instance
-      year = [year];                                                            # Convert year to list
-    
-    tags = ' '.join( [tag for tag in self._schedule] );                         # Get all tags from _schedule and convert to giant string
-    if any([str(y) in tags for y in year]): return                              # If the year requested is already in one of the tags
-    
-    for y in year:                                                              # Iterate over all years
-      syear, eyear = str(y)[-2:], str(y+1)[-2:];
-      url  = '{}/challenge/schedule_{}{}.php'.format(self.URL,syear,eyear);
-      soup = checkURL(url);
-      if soup:
-        table = soup.find_all('table')[-1];                                     # Find the table in the parsed data
-        self._schedule.update( parse_schedule(table) );                         # Parse the schedule
-    self.update_schedule( self._schedule );
+
   ##############################################################################
   def __get_results_urls_dates(self, years, semesters, identifiers, days, schools = None):
     '''
     Function to build URL for downloading the data. Returns a list.
     year is assumed to be the Fall semester year.
     school is defaulted to natl; for national information'''
-    dir     = 'history/results'
-    fileFMT = '{}_results_{}_day{}.html'
     urls    = [];
     dates   = [];
     if not isinstance(years,       list): years       = [years];                # Convert years to list if not already
@@ -253,10 +214,6 @@ class WxChallenge( WxChall_SQLite ):
       schools     = [schools];                                                  # Convert schools to list
     for year, semester in zip(years, semesters):                                # Iterate over all years and semesters
       tag  = '{}:{}'.format(semester.lower(), year);      
-      if semester.lower() == 'spring':
-        year = '{}-{}'.format(str(year-1)[-2:], str(year)[-2:]);                # Set up the year part of the url
-      else:    
-        year = '{}-{}'.format(str(year)[-2:], str(year+1)[-2:]);                # Set up the year part of the url
       for identifier in identifiers:                                            # Iterate over all identifiers
         if identifier not in self._schedule[tag]: continue;
         start = self._schedule[tag][identifier]['start'];
@@ -265,6 +222,7 @@ class WxChallenge( WxChall_SQLite ):
           offset += (day-1) % 4;
           dates.append( start + timedelta(days = offset) )
           for school in schools:                                                # Iterate over all schools
-            file = fileFMT.format(identifier.lower(), school, day);             # Generate the file name
-            urls.append( '{}/{}/{}/{}'.format(self.URL, dir, year, file) );     # Append full URL to the list of urls
+            urls.append( 
+              URLs.getResultsURL(semester, year, identifier, school, day)
+            )
     return urls, dates;                                                         # Return urls and dates variables

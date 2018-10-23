@@ -3,10 +3,10 @@ from datetime import datetime;
 # Handle python2 and python3
 try:
   import data as WxData;
-  from utils import getSemester, updateSchedule;
+  from utils import getSemester, generateKey;#updateSchedule;
 except:
   from . import data as WxData;
-  from .utils import getSemester, updateSchedule;
+  from .utils import getSemester, generateKey;#updateSchedule;
 
 getTemp = lambda x: int( x.split(u'\xb0')[0][1:] );                             # Lambda function to pull out temperature from string
 getWind = lambda x: int( x[1:] );                                               # Lambda function to pull out wind from string
@@ -126,38 +126,53 @@ def parse_results_foot( table, date, ident, day):
 
 ################################################################################
 def parse_schedule( table ):
-  '''Function to parse information form the schedule'''
-  schedule = {}
-  rows  = table.find_all('tr');
-  for row in rows:
-    cols = [ele.text.strip() for ele in row.find_all('td') if ele];
-    if cols[0] == '': continue;
-    if cols[0].split()[-1].isdigit():
-      year = int(cols[0].split()[1]);
-      continue;
-    elif any(['DATES' in i.upper() for i in cols]) or cols[0] == '' or cols[1].upper() == 'TBD':
-      continue;
-    start, end = cols[-1].split('-')
-    sMonth, sDay = start.split()[:2];
-    end = end.split();
-    if len(end) == 1:
-      eMonth, eDay = sMonth, end[0];
-    else:
-      eMonth, eDay = end[:2];
-    sMonth, sDay = convertMonth(sMonth), int(sDay)
-    eMonth, eDay = convertMonth(eMonth), int(eDay)
-    start  = datetime(int(year), sMonth, sDay).date()
-    end    = datetime(int(year), eMonth, eDay).date()
-    try:
-      city, state = cols[0].split(',')[:2];
-    except:
-      city, state = cols[0], '';
-    if cols[1][0] != 'K': cols[1] = 'K' + cols[1];
+  '''
+  Name:
+     parse_schedule
+  Purpose:
+     A python function to parse information from the WxChallenge
+     forecast schedule given the table handle from a BeautifulSoup
+     object.
+  Inputs:
+     table : A table object from BeautifulSoup parse
+  Outputs:
+     Returns a dictionary with parsed schedule information
+  Keywords:
+     None.
+  '''
+  
+  sched = {};                                                                   # Initialize empty dictionary
+  rows  = table.find_all('tr');                                                 # Find all the rows in the table
+  for row in rows:                                                              # Iterate over all the rows
+    cols = [ele.text.strip() for ele in row.find_all('td') if ele];             # Iterate over all columns in the row and get the text if the column has information
+    if cols[0] == '': continue;                                                 # If the first value of cols is empty string, then continue to next row
+    if cols[0].split()[-1].isdigit():                                           # If the last value of cols is a digit
+      year = int(cols[0].split()[1]);                                           # Get the year from the cols
+      continue;                                                                 # Continue to next row
+    elif any(['DATES' in i.upper() for i in cols]) or cols[1].upper() == 'TBD': # Else, if the row is a header, or has 'TBD' as second column value
+      continue;                                                                 # Continue to next row
+    start, end = cols[-1].split('-');                                           # Get start and end dates by splitting last column on hyphen
+    sMonth, sDay = start.split()[:2];                                           # Get start month and day
+    end = end.split();                                                          # Get end month and day
+    if len(end) == 1:                                                           # If the length of end is one
+      eMonth, eDay = sMonth, end[0];                                            # Then the end month is the same as the start month
+    else:                                                                       # Else
+      eMonth, eDay = end[:2];                                                   # Get end month and day
+    sMonth, sDay = convertMonth(sMonth), int(sDay);                             # Convert start month string to number and start day string to number
+    eMonth, eDay = convertMonth(eMonth), int(eDay);                             # Convert end month string to number and end day string to number
+    start  = datetime(int(year), sMonth, sDay).date();                          # Create start datetime object
+    end    = datetime(int(year), eMonth, eDay).date();                          # Create start datetime object
+    try:                                                                        # Try to
+      city, state = cols[0].split(',')[:2];                                     # Get city and state by splitting on comma and taking first 2 values
+    except:                                                                     # On exception
+      city, state = cols[0], '';                                                # Get city as first column value and set state to empty string
+    if cols[1][0] != 'K': cols[1] = 'K' + cols[1];                              # If the first character in the second column is NOT a K, then prepend K
     info   = {WxData.scheduleCols[0]['name'] : city, 
               WxData.scheduleCols[1]['name'] : state, 
               WxData.scheduleCols[2]['name'] : cols[1], 
               WxData.scheduleCols[3]['name'] : start, 
-              WxData.scheduleCols[4]['name'] : end}
-              
-    schedule = updateSchedule( schedule, info );
-  return schedule;
+              WxData.scheduleCols[4]['name'] : end};                            # Create info dictionary with all information for forecast city
+    key = generateKey( end );                                                   # Generate key for sched dictionary using date for the end of the forecast city
+    if key not in sched: sched[key] = {};                                       # If the key key is NOT in self, initialize empty dictionary under key
+    sched[key][ info['ident'] ] = info;                                         # Add the info dictionary into the key dictionary using the identifier from info as the key
+  return sched;                                                                 # Return the schedule dictionary

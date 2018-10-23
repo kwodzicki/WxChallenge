@@ -13,18 +13,10 @@ def getSemester( date ):
   return 'spring' if date.month < 8 else 'fall';
 
 ################################################################################
-def updateSchedule( sched, info ):
-  '''
-  sched is a dictionary and info is a 5-element list (or tuple)
-  containing (in order) [city, state, identifier, start date, end date]
-  start date and end date are datetime instances!
-  '''
-  sem     = getSemester( info['end'] )
-  semYear = '{}:{}'.format(sem, info['end'].year)
-  if semYear not in sched: sched[semYear] = {};
-  sched[semYear][info['ident']] = info;
-  return sched;
-
+def generateKey( date ):
+  sem = getSemester( date );
+  return '{}:{}'.format(sem, date.year);
+  
 ################################################################################
 def checkURL(url):
   '''Method to check if url exists'''
