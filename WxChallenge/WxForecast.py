@@ -271,7 +271,8 @@ class forecaster( pandas.DataFrame ):
     Keywords:
        None.
     '''
-    return self.index.get_level_values('identifier').unique().values;           # Get all 'identifier' values, find just unique, then get the values and return
+    vals = self.index.get_level_values('identifier').unique();                  # Get all 'identifier' values, find just unique
+    return vals.values.astype( str );                                           # Get get the values as type str and return
   ##############################################################################
   def __check_forecast(self, data):
     '''
