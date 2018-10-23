@@ -180,7 +180,7 @@ class WxChall_SQLite( object ):
         info = {};
         for col, val in zip(WxData.scheduleCols, city):
           info[col['name']] = val;
-        print(info)
+        if self.verbose: print(info);
         self._schedule.Update( info );
   ##############################################################################
   def sql_Update_Schedule(self):
