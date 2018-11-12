@@ -30,6 +30,8 @@ if __name__ == "__main__":
     log.setLevel(logging.DEGUB);
   elif args.verbose: 
     log.setLevel(logging.INFO);
+  else:
+    log.setLevel(logging.WARNING);
   
   inst = WxChallenge(verbose = args.verbose);
   inst.update_Semester( 
