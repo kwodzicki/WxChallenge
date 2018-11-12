@@ -1,3 +1,4 @@
+import logging 
 try:
   from .utils import generateKey;#, updateSchedule;
   from parsers import parse_schedule;
@@ -12,6 +13,7 @@ class WxChall_Schedule( dict ):
     dict.__init__(self);
     self.date   = date.today()
     self.latest = None;                                                         # Initialize latest attribute to None
+    self.log    = logging.getLogger( __name__ );
   ##############################################################################
   def Update(self, info):
     '''
@@ -26,8 +28,10 @@ class WxChall_Schedule( dict ):
     Keywords:
        None.
     '''
+    self.log.debug( type(info) );
     if not isinstance( info, dict ):                                            # If info is NOT a dictionary instance
       info = parse_schedule( info );                                            # Assume it is a BeautifulSoup table and parse it
+    self.log.debug( info )
     for semYear in info:                                                        # Iterate over all semesters/years
       if not isinstance( info[semYear], dict ):                                 # If NOT a nested dictionary
         key  = generateKey( info['end'] );                                      # Generate key for 

@@ -1,3 +1,4 @@
+import logging
 import sqlite3, os;
 # Handle both Python2 and Python3
 try:
@@ -21,6 +22,7 @@ URLs = WxChall_URLs();
 class WxChall_SQLite( object ):
   ##############################################################################
   def __init__(self, file = _sql_file, verbose = False):
+    self.log     = logging.getLogger( __name__ );
     self.verbose = verbose;
     self.sqlFile = file;
     self.db      = sqlite3.connect( self.sqlFile, detect_types=sqlite3.PARSE_DECLTYPES );
@@ -34,6 +36,7 @@ class WxChall_SQLite( object ):
       self.download_Schedule(all=True);
     elif self._schedule.date > self._schedule.latest:                                      # If the current _date is greater than the latest date in the schedule
       self.download_Schedule( year = self._schedule.date.year );                         # Update the schedule
+    self.log.debug( self._schedule.date > self._schedule.latest )                                      # If the current _date is greater than the latest date in the schedule
 
   ##############################################################################
   def add_forecasts(self, forecasts):
@@ -152,7 +155,7 @@ class WxChall_SQLite( object ):
       self._schedule.Clear();
       year = [y for y in range(2006, self._schedule.date.year)]
     
-    if year is None or all:                                                     # If year is None (i.e., no year input) OR all is True
+    if year == self._schedule.date.year or year is None or all:                 # If year is None (i.e., no year input) OR all is True
       soup = URLs.getScheduleURL(current = True, soup = True);                  # Set up url
       if soup:
         table = soup.find_all('table')[-1];                                     # Find the table in the parsed data
@@ -162,9 +165,10 @@ class WxChall_SQLite( object ):
         return;
     elif not isinstance(year, list):                                            # Else, if year is not list instance
       year = [year];                                                            # Convert year to list
-    
+
     for y in year:                                                              # Iterate over all years
       syear, eyear = str(y)[-2:], str(y+1)[-2:];
+      self.log.debug( 'syear: {}, eyear: {}'.format(syear, eyear) );
       soup = URLs.getScheduleURL(syear, eyear, soup = True)
       if soup:
         table = soup.find_all('table')[-1];                                     # Find the table in the parsed data
@@ -180,7 +184,7 @@ class WxChall_SQLite( object ):
         info = {};
         for col, val in zip(WxData.scheduleCols, city):
           info[col['name']] = val;
-        if self.verbose: print(info);
+#         if self.verbose: print(info);
         self._schedule.Update( info );
   ##############################################################################
   def sql_Update_Schedule(self):
