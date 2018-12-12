@@ -8,8 +8,9 @@ except:
 import pandas;
 import numpy as np;
 
-miss_penalize  = 100.0 / (fcst_per_city - miss_allowed);
-climo_penalize = 30.0  / (fcst_per_city - miss_allowed);
+required       = fcst_per_city - miss_allowed
+miss_penalize  = 100.0 / required;
+climo_penalize =  30.0 / required;
 ##############################################################################
 def get_level_list(input, levels):
   '''get list of MultiIndex levels'''
@@ -125,8 +126,8 @@ class forecasts( pandas.DataFrame ):
             fcstErr  = fcstr[      'err_total'].values;                         # Daily error for the forecaster
             climoErr = climatology['err_total'].values;                         # Daily error for climatology
             climo    = sum( (miss == False) & (climoErr < fcstErr) );           # Sum the boolean array array that is True when forecaster DID forecast but did NOT beat climatology.
-            climo    = -climo_penalize * climo;                                 # Multiply by climo penalization
-#         score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing
+            climo    = -climo_penalize * np.clip(climo, 0, required);           # Multiply by climo penalization
+#         score = 100.0 + abse + climo + sch_con + ntl_con;                     # Compute score for missing
         score = 100.0 + abse + climo;                                           # Compute score; do NOT include beating national or school consensus
         indVals = get_level_list(fcstr, gradeInd);                              # Get the values for, what will be, the index columns
         grades.append( indVals+[nFcsts, abse, climo, sch_con, ntl_con, score] );# Append grades to the grades list
