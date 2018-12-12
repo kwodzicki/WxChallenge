@@ -1,14 +1,15 @@
 # Import column naming data
 try:
   from data import forecastCols as cols;
-  from data import grd_df_cols;
+  from data import grd_df_cols, miss_allowed, fcst_per_city;
 except:
   from .data import forecastCols as cols;
-  from .data import grd_df_cols;
+  from .data import grd_df_cols, miss_allowed, fcst_per_city;
 import pandas;
 import numpy as np;
 
-
+miss_penalize  = 100.0 / (fcst_per_city - miss_allowed);
+climo_penalize = 30.0  / (fcst_per_city - miss_allowed);
 ##############################################################################
 def get_level_list(input, levels):
   '''get list of MultiIndex levels'''
@@ -25,7 +26,27 @@ def get_indices(values, check):
   index = np.full( len(values[0]), True );
   for i in range( len(values) ): index = index & (values[i] == check[i]);
   return index; 
+
+def calc_School_Norm( fcData ):
+  '''
+  This function returns the consensus cumulative error for
+  a school and the standard deviation for the cumulative error 
+  for the school using information for the latest forecast date
+  in the DataFrame
+  '''
+  schConsen = fcData.index.get_level_values('name') == 'CONSEN';              # Get consensus for the school for the given station
+  schConsen = fcData.loc[ schConsen ];                                        # Get data for consensus for the school
+  fcstDays  = schConsen.index.get_level_values('day');                        # Get the forecast days for the city, i.e., 1, 2, 3, etc.
+  maxDay    = fcstDays.max();                                                 # Get latest forecast day
+  id        = fcstDays == maxDay;
+  schConErr = schConsen.loc[id]['cum_err_total'].values[0];                   # Value of the cumulative consensus error
   
+  fcstDays  = fcData.index.get_level_values('day');
+  category  = fcData.index.get_level_values('category');
+  id        = (fcstDays == maxDay) & (category < 9);
+  fcConErr  = fcData.loc[id]['cum_err_total'].values;                         # Value of the cumulative consensus error
+  return schConErr, np.std( fcConErr);
+
 ################################################################################
 class forecasts( pandas.DataFrame ):
   '''
@@ -74,8 +95,7 @@ class forecasts( pandas.DataFrame ):
     for stid in stUNIQ:                                                         # Iterate over the unique levels
       locStat   = get_indices( stVal, stid );                                   # Get location of unique station
       fcData    = self.loc[ locStat ];                                          # Subset the forecasts using the location
-      schConsen = fcData.index.get_level_values('name') == 'CONSEN';            # Get consensus for the school for the given station
-      schConsen = fcData.loc[ schConsen ];                                      # Get data for consensus for the school
+      schConErr, schErrSTD = calc_School_Norm( fcData );
 
       if model is not None:                                                     # If model is NOT None
         locStat     = get_indices( mdVal, stid[1:] );                           # Get location of unique station in the model data
@@ -93,20 +113,21 @@ class forecasts( pandas.DataFrame ):
         miss    = fcstr['abs'].values != 0;                                     # Array of boolean values to check absence from game
         nmiss   = fcstr['abs'].values.max();                                    # Get the number of missed forecasts; the maximum number from the abs column
         nFcsts  = numDays - nmiss;                                              # Number of forecasted submitted
-        abse    = -np.clip(nmiss-2, 0, None)*14.286;                            # Compute absence deductions; 2 free misses before deductions
+        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize;        # Compute absence deductions; 2 free misses before deductions
         err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
-        if len(schConsen) == numDays:                                           # If the school consensus data are the same length as the forecaster data
-          sch_con = schConsen['cum_err_total'].values[-1];                      # Get row for the last day of the contest at given city
-          sch_con = 0.5 if err < sch_con else 0.0;                              # If forecaster error is less than school consensus, set sch_con to 0.5, else, set it to 0.0
+        sch_con = (err - schConErr) * 10.0 / schErrSTD;
+        sch_con = np.clip( -sch_con, 0.0, None );
+        ntl_con = fcstr['norm_city'].values[-1];
+        ntl_con = np.clip( -ntl_con, 0.0, None );
+
         if model is not None:                                                   # If model is NOT none
-          if len(ntlConsen) == numDays:                                         # If the national consensus data are the same length as the forecaster data
-            ntl_con = ntlConsen['cum_err_total'].values[-1];                    # Get cumulative national consensus error on last day of city
-            ntl_con = 1.0 if err < ntl_con else 0.0;                            # If forecaster error is less than national consensus, set ntl_con to 1.0, else, set it to 0.0
           if len(climatology) == numDays:                                       # If the climatology data ar the same length as the forecaster data
             fcstErr  = fcstr[      'err_total'].values;                         # Daily error for the forecaster
             climoErr = climatology['err_total'].values;                         # Daily error for climatology
-            climo    = -6 * sum( (miss == False) & (climoErr < fcstErr) );      # Compute boolean array that is True when forecaster DID forecast but did NOT beat climatology. Sum number of True, multiply by -6
-        score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing; give them 2 free misses a week, after that subtract 14.286 (1/7th of 100) for every missed day
+            climo    = sum( (miss == False) & (climoErr < fcstErr) );           # Sum the boolean array array that is True when forecaster DID forecast but did NOT beat climatology.
+            climo    = -climo_penalize * climo;                                 # Multiply by climo penalization
+#         score = 100.0 + abse + climo + sch_con + ntl_con;                       # Compute score for missing
+        score = 100.0 + abse + climo;                                           # Compute score; do NOT include beating national or school consensus
         indVals = get_level_list(fcstr, gradeInd);                              # Get the values for, what will be, the index columns
         grades.append( indVals+[nFcsts, abse, climo, sch_con, ntl_con, score] );# Append grades to the grades list
     self.grades = pandas.DataFrame(grades, columns = gradeCol);                 # Initialize DataFrame using grades list and gradeCols for columns
