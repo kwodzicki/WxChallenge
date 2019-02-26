@@ -166,7 +166,7 @@ def parse_schedule( table ):
       city, state = cols[0].split(',')[:2];                                     # Get city and state by splitting on comma and taking first 2 values
     except:                                                                     # On exception
       city, state = cols[0], '';                                                # Get city as first column value and set state to empty string
-    if cols[1][0] != 'K': cols[1] = 'K' + cols[1];                              # If the first character in the second column is NOT a K, then prepend K
+    if len(cols[1]) != 4: cols[1] = 'K' + cols[1];                              # If the ID is NOT 4 characters long, then prepend a K
     info   = {WxData.scheduleCols[0]['name'] : city, 
               WxData.scheduleCols[1]['name'] : state, 
               WxData.scheduleCols[2]['name'] : cols[1], 
