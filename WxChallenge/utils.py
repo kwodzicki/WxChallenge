@@ -1,3 +1,4 @@
+import logging
 from bs4 import BeautifulSoup;
 import numpy as np;
 import os;
@@ -113,7 +114,7 @@ def _get_CSV_Indices( header ):
     return classIDs, fnameID, lnameID;
 
 ################################################################################
-def fix_Roster_CSV( filename ):
+def fix_Roster_CSV( filename, semester, loglevel = logging.WARNING ):
   '''
   Name:
      fix_Roster_CSV
@@ -121,6 +122,9 @@ def fix_Roster_CSV( filename ):
      Function to reformat the 'csv' roster from the WChallenge website.
   Inputs:
      filename : Full path to the file to reformat
+     semester : Semester of the roster; spring roster contains data from
+                 fall roster, so must remove those people for other code 
+                 to work.
   Outputs:
      Fixes formatting within the file; i.e., overwrites the file.
   Keywords:
@@ -131,13 +135,18 @@ def fix_Roster_CSV( filename ):
      Updated on 21 Sep. 2018 by Kyle R. Wodzicki
        Sorts the rows of the CSV based on last name
   '''
+  log = logging.getLogger(__name__)
+  log.setLevel( loglevel )
   joinLine = lambda line: '{}\n'.format( ','.join(line) );
+
   if not os.path.isfile( filename ): return False;                              # If the file does NOT exist, return false
+
   fid  = open( filename, 'r+' );                                                # Open file in r+ mode
   data = fid.readline();                                                        # Read the first line from the file
   line = fid.tell();                                                            # Get the current position in the file
   fid.seek(0, 2);                                                               # Seek to the end of the file
   if fid.tell() == line:                                                        # If the current position (i.e., the end of the file) is the same as the position after reading a line, then read in all the data and must fix
+    log.info('Fixing the CSV roster file')
     fid.seek(0, 0);                                                             # Seek to beginning of file
     head  = data.split()[0].split(',');                                         # First list of values on space split is header, split header on coma 
     nCol  = len(head);                                                          # Number of columns in the data
@@ -150,6 +159,7 @@ def fix_Roster_CSV( filename ):
       if len(tmp) == 2:                                                         # If two values obtained from split
         data[ id ] = tmp[0];                                                    # Place the first split value into the last column of the current row
         data.insert( id+1, tmp[1] );                                            # Insert second value of the split into the data list as first value of next row into the data list
+      log.debug( sub )
       sub = [ val.strip() for val in data[i:i+nCol] ];                          # Iterate over all values from i to i+nCol and strip off any preceding/trailing spaces and save new sub list for the row in sub
       lines.append( sub );                                                      # Join the line on comma, append carriage return, and append to lines list
       i += nCol;                                                                # Increment i by nCol
@@ -158,6 +168,19 @@ def fix_Roster_CSV( filename ):
     fid.write( joinLine( head ) );                                              # Write header information to file
     for line in lines: fid.write( joinLine( line ) );                           # Join the sub list using comma, append a return character (\n), and write to the input file
     fid.truncate();
+
+  # Check for if in spring semester; must remove all FALL only forecasters
+  if semester.upper() == 'SPRING':                                              # If we are in the spring semester
+    lines = [];                                                                 # Initialize empty list to store filtered lines
+    fid.seek(0);                                                                # Move to beginning of roster file
+    for line in fid.readlines():                                                # Iterate over all lines in the file
+      if not any( [ (val == 'F') for val in line.split(',')] ):                 # If None of the values in the line are 'F'
+        lines.append( line );                                                   # Append line to the lines list
+    fid.seek(0);                                                                # Seek to the beginning of the file again
+    for line in lines:                                                          # Iterate over the filtered lines
+      fid.write( line );                                                        # Write each line to the file
+    fid.truncate();                                                             # Truncate the file
+
   fid.close();                                                                  # Close the file
   return True;                                                                  # Return True
 

@@ -1,3 +1,4 @@
+import logging
 import os;
 import numpy as np;
 from openpyxl import Workbook;
@@ -19,8 +20,10 @@ class ExcelBook( Workbook ):
   A class for generating an XLSX file for a given class that
   forecasters are enrolled in.
   '''
-  def __init__(self, file):
+  def __init__(self, file, loglevel = logging.WARNING):
     Workbook.__init__(self);                                                    # Initialize Workbook
+    self.log = logging.getLogger(__name__)
+    self.log.setLevel( loglevel )
     self.remove(self.active);                                                   # Remove the initial sheet
     self.file   = file;                                                         # File to save to on saveBook method
     self.fcstrs = [];                                                           # List to store (forecaster id, last name, first name) tuples for the Workbook
@@ -57,7 +60,9 @@ class ExcelBook( Workbook ):
     Keywords:
        None.
     '''
+
     if sheetName not in self:                                                   # If a sheet with name sheetName does NOT exist
+      self.log.debug( 'Adding sheet: {} to workbook'.format(sheetName) )
       self.create_sheet( sheetName );                                           # Create a new sheet
       self._rows[sheetName] = 1;                                                # Set the row counter for the sheet to 1
       columns = ['last name', 'first name'] + grd_df_cols;                      # Set column names for the sheet
@@ -99,6 +104,7 @@ class ExcelBook( Workbook ):
     Keywords:
        None.
     '''
+    self.log.debug( 'Saving the workbook' )
     self.__addFinalScore();                                                     # Add the final Scores sheet
     self.__addSorting();                                                        # Enable sorting on all sheets
     dir = os.path.dirname( self.file );                                         # Parent directory of file path
@@ -119,10 +125,13 @@ class ExcelBook( Workbook ):
        None.
     '''
     fmt    = "{}{}:{}{}";                                                       # Format for cell ranges
+    self.log.debug('Iterating over all workbook sheets')
     for sheet in self:                                                          # Iterate over all sheets in the Workbook
+      self.log.debug( 'Adding sorting to sheet: {}'.format( sheet ) )
       rows = [ 1,   self._rows[sheet.title] ];                                  # Set rows from second through last row
       cols = [ 'A', col2letter(sheet.max_column) ];                             # Set columns to first through last column
       sheet.auto_filter.ref = fmt.format(cols[0], rows[0], cols[1], rows[1]);   # Set the reference space for the filtering; i.e., which data will be filtered
+      self.log.debug( 'Iterating over columns in the sheet' )
       for i in range( sheet.max_column ):                                       # Iterate ver all the columns
         col = col2letter( i+1 );                                                # Get the leter name for the column
         rng = fmt.format( col, rows[0], col, rows[1] );                         # Set up the range of values for sorting of single column
@@ -145,8 +154,10 @@ class ExcelBook( Workbook ):
     sch_bonus = [];
     ntl_bonus = [];
     scores    = [];                                                             # List to store scores in
+
+    self.log.debug('Iterating over all sheets in workbook')
     for sheet in self:                                                          # Iterate over all sheets in the Workbook
-      nCols = sheet.max_column;
+      nCols   = sheet.max_column;
       sch_col = col2letter( nCols - 2 );
       ntl_col = col2letter( nCols - 1 );
       scr_col = col2letter( nCols     );                                        # Convert the maximum column number to letter
@@ -155,12 +166,17 @@ class ExcelBook( Workbook ):
       ntl_bonus.append( [ i.value for i in sheet[ntl_col][1:] ] );
       scores.append( [ i.value for i in sheet[scr_col][1:] ] );                 # Get the values for the last column, excluding the header
 
+    if len( scores ) == 0:
+      return
+    self.log.debug('Computing final scores for all forecast cities')
     sch_bonus = np.asarray(sch_bonus).sum(  axis = 0 ); 
     ntl_bonus = np.asarray(ntl_bonus).sum(  axis = 0 ); 
     scores    = np.asarray(scores   ).mean( axis = 0 );                         # Covert the scores list to a numpy array and then average over the zeroth axis
 
     names     = sheet['A1':'B{}'.format(self.active.max_row)];                  # Get the first and last names (first two columns) from the last sheet of the for loop
     ws        = self.create_sheet('Final_Grades');                              # Create new sheet title Final_Grades
+    
+    self.log.debug('Adding final scores to the workbook')
     for i in range( len(names) ):                                               # Iterate over all the tuples in names
       row = [ j.value for j in names[i] ];                                      # Get the value in the tuple and convert to list
       if i == 0:
@@ -178,7 +194,7 @@ class WxChall_Grades_Excel( object ):
   in the roster. In each class SpreadSheet there will be a
   sheet for each forecast city.
   '''
-  def __init__(self, semester, year, roster, school=None, verbose=False):
+  def __init__(self, semester, year, roster, school=None, verbose=False, loglevel = logging.WARNING):
     '''
     Name:
        __init___
@@ -197,6 +213,8 @@ class WxChall_Grades_Excel( object ):
        outdir   : Top level output directory for SpreadSheet files.
                     Default is same location as roster file
     '''
+    self.log = logging.getLogger( __name__ )
+    self.log.setLevel( loglevel )
     self.wx  = WxChallenge();                                                      # Initialize the WxChallenge
     self.semester  = semester
     self.year      = year
@@ -228,8 +246,8 @@ class WxChall_Grades_Excel( object ):
       year     = self.year
     );                                                                          # Get forecasts based on command line arguments
 
-    if len(fcsts) == 0:                                                           # If no forecasts returned
-      print( 'No forecasts found!' );                                           # Print a message
+    if len(fcsts) == 0:                                                         # If no forecasts returned
+      self.log.error( 'No forecasts found!' );                                  # Print a message
       return False;                                                             # Exit
     model = self.wx.get_forecasts( 
       school   = self.school,
@@ -279,7 +297,9 @@ class WxChall_Grades_Excel( object ):
     Keywords:
        None.
     '''
-    for key in self.Workbooks: self.Workbooks[key].saveBook();                  # Iterate over all the keys in the Workbooks dictionary and save the books
+    for key in self.Workbooks: 
+      self.log.debug('Saving workbook {}'.format(key) )
+      self.Workbooks[key].saveBook();                                           # Iterate over all the keys in the Workbooks dictionary and save the books
   ##############################################################################
   def updateSpreadSheets(self, fcstr):
     '''
@@ -323,16 +343,18 @@ class WxChall_Grades_Excel( object ):
     '''
     Workbooks = {}
     if not os.path.isfile( csvfile ):                                           # If the file does NOT exists
-      print( 'Roster file NOT found!' );                                        # Print a message
+      self.log.error( 'Roster file NOT found!' );                               # Print a message
     else:                                                                       # Else, it exists
-      fix_Roster_CSV( csvfile );                                                # Fix the CSV file
+      fix_Roster_CSV( csvfile, self.semester, loglevel = self.log.level );      # Fix the CSV file
       roster = read_csv( csvfile );                                             # Read in the data
+      self.log.debug('Iterating over class ids');
       for col in class_tag:                                                     # Iterate over the class ids
         for cls in roster[col].unique():                                        # Iterate over the unique values in the column
           if 'NO CLASS' in cls.upper(): continue;                               # Skip the 'No Class' class
           if cls not in Workbooks:                                              # If the cls key is NOT in the Workbooks dictionary,
             xlsFile = '{}.xlsx'.format(  '_'.join( cls.split() ) );             # Base name for the Excel file
             xlsFile = os.path.join( self.outdir, xlsFile );                     # Full path for the file
+            self.log.debug( 'XLSX file is: {}'.format( xlsFile ) )
             Workbooks[cls] = ExcelBook( xlsFile );                              # Initialize ExcelBook object
       for col in class_tag:                                                     # Iterate over the columns to sort students into Workbooks
         for cls in Workbooks:                                                   # Iterate over all tags in the Workbooks dictionary

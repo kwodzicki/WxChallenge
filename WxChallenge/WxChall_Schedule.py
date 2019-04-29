@@ -9,11 +9,12 @@ except:
 from datetime import date;
 
 class WxChall_Schedule( dict ):
-  def __init__(self):
+  def __init__(self, loglevel = logging.WARNING):
     dict.__init__(self);
     self.date   = date.today()
     self.latest = None;                                                         # Initialize latest attribute to None
     self.log    = logging.getLogger( __name__ );
+    self.log.setLevel( loglevel )
   ##############################################################################
   def Update(self, info):
     '''

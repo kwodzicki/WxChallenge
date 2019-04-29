@@ -15,9 +15,9 @@ climo_penalize =  30.0 / required;
 def get_level_list(input, levels):
   '''get list of MultiIndex levels'''
   lvl_vals = [];
-  for i in range( len(input.index.labels) ):
+  for i in range( len(input.index.codes) ):
     if input.index.names[i] not in levels: continue
-    j = input.index.labels[i][0]
+    j = input.index.codes[i][0]
     lvl_vals.append( input.index.levels[i][j] );
   return lvl_vals;      
 
