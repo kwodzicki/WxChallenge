@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from WxChallenge.WxChall_Excel import WxChall_Grades_Excel;#, WxChall_Forecasts_Excel;
+from WxChallenge.version import __version__
 
 if __name__ == "__main__":
   import argparse;                                                              # Import library for parsing
@@ -17,6 +18,7 @@ if __name__ == "__main__":
 	  help="Year to score; should be used with semester");                        # Year option at command line
   parser.add_argument("roster", type=str, 
 	  help="Path to CSV roster file");                                            # Semester option at command line
+  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
   if len(args.schools) == 0: args.schools = None;                               # If the length of schools argument is zero, then set to None
