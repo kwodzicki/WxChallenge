@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import logging;
 from datetime import timedelta;
 # Handle both Python2 and Python3
 try:
@@ -20,7 +20,7 @@ class WxChallenge( WxChall_SQLite ):
     WxChall_SQLite.__init__(self, verbose = verbose);
     self._header      = None;
     self._forecasters = None;
-
+    self.log          = logging.getLogger(__name__);
   ###########################################################################
   def update_Semester(self, semester = None, year = None, schools = None):
     '''
@@ -57,22 +57,22 @@ class WxChallenge( WxChall_SQLite ):
       year, semester, identifiers, days, schools = schools
     );
     for i in range(len(urls)):                                                  # Iterate over all urls
-      if self.verbose: print( urls[i] )
+      self.log.debug( urls[i] )
       soup = checkURL(urls[i]);                                                 # Download the HTML
       if soup:                                                                  # If data download was successful 
         table   = soup.find('table');                                           # Find the table in the parsed data
         self._head = parse_results_head(table);                                 # Parse the results header
         ident, day = self.getIdentDay(tag, dates[i])
         if ident is None:
-          print('Issue getting identifer for:\n{}'.format(urls[i]) );
-          print( tag, dates[i] );
+          self.log.error( 'Issue getting identifer for:\n{}'.format(urls[i]) );
+          self.log.error( tag, dates[i] );
           raise Exception;
         forecasts  = parse_results_body(table, dates[i], ident, day)            # Parse results body
         models     = parse_results_foot(table, dates[i], ident, day)   
         self.add_forecasts( forecasts );
         self.add_forecasts( models    );
       else:                                                                     # Else, data download NOT successful
-        print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
+        self.log.error( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
     return True;
   ###########################################################################
   def update_Day(self, semester, year, identifier, day, schools = None):
@@ -103,10 +103,10 @@ class WxChallenge( WxChall_SQLite ):
     )
     if urls is None or len(urls) == 0:
       err = 'No varification for: {} ID: {}, Day: {}!'.format( tag, identifier, day )
-      print(err);
+      self.log.error( err );
       return False;
     for i in range(len(urls)):                                                  # Iterate over all urls
-      print( urls[i] );
+      self.log.debug( urls[i] );
       soup = checkURL(urls[i]);                                                 # Download the HTML
       if soup:                                                                  # If data download was successful 
         table   = soup.find('table');                                           # Find the table in the parsed data
@@ -116,7 +116,7 @@ class WxChallenge( WxChall_SQLite ):
         self.add_forecasts( forecasts );
         self.add_forecasts( models    );
       else:                                                                     # Else, data download NOT successful
-        print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
+        self.log.error( 'URL not valid: {}'.format(urls[i]) );                  # Print a message
         return False
     return True
 
@@ -150,10 +150,10 @@ class WxChallenge( WxChall_SQLite ):
     )
     if urls is None or len(urls) == 0:
       err = 'No varification for: {}!'.format( date )
-      print(err);
+      self.log.error( err);
       return False;
     for i in range(len(urls)):                                                  # Iterate over all urls
-      print( urls[i] );
+      self.log.debug( urls[i] );
       soup = checkURL(urls[i]);                                                 # Download the HTML
       if soup:                                                                  # If data download was successful 
         table   = soup.find('table');                                           # Find the table in the parsed data
@@ -163,7 +163,7 @@ class WxChallenge( WxChall_SQLite ):
         self.add_forecasts( forecasts );
         self.add_forecasts( models    );
       else:                                                                     # Else, data download NOT successful
-        print( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
+        self.log.error( 'URL not valid: {}'.format(urls[i]) );                           # Print a message
         return False
     return True
   ###########################################################################
