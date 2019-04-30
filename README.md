@@ -54,12 +54,12 @@ in the `data.py` file, be default grading is discussed below:
      		
      	The is no upper limit to the national consensus bonus
 
-#### Excel Spreadsheet Files
+### Excel Spreadsheet Files
   
   The spreadsheet(s) created by the WxChall_Grades CLI contain a sheet for each of the forecast cities and a single sheet for the overall grades
   In each city spreadsheet, there are first/last name columns, with discussion of the other columns below
   
-  ###### For city sheets
+  #### For city sheets
   - Forecasts: This is the number of forecasts submitted during the forecast period
   - Absence: This is the penalty (in percent) for the missed forecasts.
   - \# Vaca Forecasts: If the --vacation flag was used at the command line, this column indicates how many days a given forecaster forecasted for over a break.
@@ -71,7 +71,7 @@ in the `data.py` file, be default grading is discussed below:
   This value is NOT part of the total score in the last column.
   - Total: The final score for the city; 100 - absence - climo
 
-  ###### For final grades sheet
+  #### For final grades sheet
   - Consen. School: Sum of all scaled bonus points that could be applied based on beating school consensus.
   This value is NOT part of the total score in the last column.
   - Consen. Ntnl.: Sum of all scaled bonus points that could be applied based on beating national consensus.
