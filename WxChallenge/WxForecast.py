@@ -90,7 +90,13 @@ class forecasts( pandas.DataFrame ):
     if names is None: names = self.index.names;
     for name in names: 
       data.append( self.index.get_level_values( name ) );
-    return data, set( [i for i in zip(*data)] );
+    dates  = self['date'].values;                                               # Get date values for forecasts
+    info   = sorted( set( zip( *data, dates ) ), key = lambda x: x[-1] );       # Zip up the index values with the dates, find unique tuples, then sort based on date
+    uniq   = [];                                                                # Array for unique values
+    for i in info:                                                              # Iterate over values in info
+      if i[:-1] not in uniq:                                                    # If the list (excluding date) is NOT in the uniq list
+        uniq.append( i[:-1] );                                                  # Append it
+    return data, uniq;                                                          # Return all data AND the uniq values
   ##############################################################################
   def calc_grades(self, model = None, vacation = None):
     '''
@@ -151,9 +157,7 @@ class forecasts( pandas.DataFrame ):
             if vacaN > 0:
               self.log.debug( 'Found {} forecasts during break'.format(vacaN) )
               nmiss  -= vacaN;                                                  # Remove number of days of break from missed forecasts count
-              vacaN  -= sum( miss[vacaID] )
-#               brkkBns = ( vacaN - sum(miss[vacaID]) ) * break_bonus;            # Subtract number of missed days during break from number of days in break and multiply the result by the break bonus
-              
+              vacaN  -= sum( miss[vacaID] )              
         nFcsts  = numDays - nmiss;                                              # Number of forecasts submitted
         abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize;        # Compute absence deductions; 2 free misses before deductions
         err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
@@ -182,7 +186,6 @@ class forecasts( pandas.DataFrame ):
     self.grades = pandas.DataFrame(grades, columns = gradeCol);                 # Initialize DataFrame using grades list and gradeCols for columns
     if gradeInd is not None:                                                    # If columns to use as indices is NOT None
       self.grades.set_index(gradeInd, inplace=True);                            # Set columns to use as indices; inplace
-      self.grades.sort_index(inplace=True);                                     # Sort based on index; inplace
     
     school_con = self.grades[ gradeCol[-3] ].values
     self.grades[ gradeCol[-3] ] = (school_con / school_con.max())

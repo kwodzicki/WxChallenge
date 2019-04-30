@@ -5,7 +5,7 @@ the national weather challenge to use for grading purposes in classes.
 
 ## Main features
 
-* Compatible with Python3 (and Python2?)
+* Compatible with Python3
 * Saves scraped data in an SQL database
 * [pandas][pandas] DataFrames used for data manipulation
 
