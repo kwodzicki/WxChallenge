@@ -10,23 +10,35 @@ if __name__ == "__main__":
 
   dateFMT = '%Y%m%d'
   parser  = argparse.ArgumentParser(description="WxChallenge Grades");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument('-v', '--verbose', type=str, nargs='?',
-      default = 'warning',
-      choices = ['debug', 'info', 'warning', 'error', 'critcal'],
-	  help    = "Increase verbosity. Default is warning");                      # Verbose option at command line
-  parser.add_argument("-o", "--outdir", type=str, 
-	  help="Output directory for SpreadSheets. Default is home directory");       # Verbose option at command line
-  parser.add_argument("--vacation", type=lambda x: x.split(',', 2), action = 'append',
-	  help="Comma seperated string with start,end date of a school break when forecasting not required. Dates must be formated as YYYYMMDD");       # Verbose option at command line
-  parser.add_argument("schools", type=str, nargs='*', 
-	  help="School code(s). Only data for these schools will be scraped");        # Schools option at command line
-  parser.add_argument("semester", type=str, 
-	  help="Semester to score; fall or spring");                                  # Semester option at command line
-  parser.add_argument("year", type=int, 
-	  help="Year to score; should be used with semester");                        # Year option at command line
-  parser.add_argument("roster", type=str, 
-	  help="Path to CSV roster file");                                            # Semester option at command line
-  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
+  parser.add_argument('-v', '--verbose',
+    type    = str, 
+    nargs   = '?',
+    default = 'warning',
+    choices = ['debug', 'info', 'warning', 'error', 'critcal'],
+	help    = "Increase verbosity. Default is warning");                        # Verbose option at command line
+  parser.add_argument("-o", "--outdir",
+    type = str, 
+	help = "Output directory for SpreadSheets. Default is home directory");     # Verbose option at command line
+  parser.add_argument("--vacation", 
+    type   = lambda x: x.split(',', 2), 
+    action = 'append',
+	help   = "Comma seperated string with start,end date of a school break when forecasting not required. Dates must be formated as YYYYMMDD");       # Verbose option at command line
+  parser.add_argument("schools",
+    type  = str,
+    nargs = '*', 
+	help  = "School code(s). Only data for these schools will be scraped");        # Schools option at command line
+  parser.add_argument("semester",
+    type = str, 
+	help = "Semester to score; fall or spring");                                  # Semester option at command line
+  parser.add_argument("year",
+    type = int, 
+	help = "Year to score; should be used with semester");                        # Year option at command line
+  parser.add_argument("roster",
+    type = str, 
+	help = "Path to CSV roster file");                                            # Semester option at command line
+  parser.add_argument('--version',
+    action  = 'version',
+    version = '%(prog)s ' + __version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
   log.setLevel( getattr(logging, args.verbose.upper() )
