@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+import sys
+from PyQt5.QtWidgets import QApplication
+from WxChallenge.GUI.guiMain import WxChallengeGUI;
+
+qt_app = QApplication( sys.argv )
+inst   = WxChallengeGUI( );
+
+qt_app.exec_();
