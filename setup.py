@@ -15,7 +15,9 @@ ver_path = convert_path("{}/version.py".format(pkg_name));
 with open(ver_path) as ver_file:
   exec(ver_file.read(), main_ns);
 
-"""sys.path.pop(0);                                                                # Pop off current directory from path
+"""
+sys.path.pop(0);                                                                # Pop off current directory from path
+
 pkg_info = importlib.util.find_spec( pkg_name );                                # Look for the package; may be installed
 if pkg_info:                                                                    # If the package is found
   pkg_dir = os.path.dirname( pkg_info.origin );                                 # Current package directory
@@ -54,7 +56,7 @@ setup(
   author_email         = "krwodzicki@gmail.com",
   version              = main_ns['__version__'],
   packages             = setuptools.find_packages(),
-  install_requires     = [ "bs4", "lxml", "numpy", "scipy", "pandas", "openpyxl" ],
+  install_requires     = [ "bs4", "lxml", "numpy", "scipy", "pandas", "openpyxl", "PyQt5" ],
   scripts              = ['bin/WxChall_Daily_Update',
                           'bin/WxChall_Semester_Update',
                           'bin/WxChall_Grades'],

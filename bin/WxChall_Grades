@@ -41,12 +41,13 @@ if __name__ == "__main__":
     version = '%(prog)s ' + __version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
-  log.setLevel( getattr(logging, args.verbose.upper() )
+  log.setLevel( getattr(logging, args.verbose.upper() ) )
 
-  for i in range( len(args.vacation) ):
-    sDate, eDate = args.vacation[i]
-    args.vacation[i] = (datetime.strptime(sDate, dateFMT).date(),
-                        datetime.strptime(eDate, dateFMT).date() )
+  if args.vacation is not None:
+    for i in range( len(args.vacation) ):
+      sDate, eDate = args.vacation[i]
+      args.vacation[i] = (datetime.strptime(sDate, dateFMT).date(),
+                          datetime.strptime(eDate, dateFMT).date() )
 
   if len(args.schools) == 0: args.schools = None;                               # If the length of schools argument is zero, then set to None
   inst = WxChall_Grades_Excel( args.semester, args.year, args.roster,
