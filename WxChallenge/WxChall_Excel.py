@@ -365,4 +365,13 @@ class WxChall_Grades_Excel( object ):
             lname  = tmp[lname_tag].values;                                     # Get forecaster last name values
             fname  = tmp[fname_tag].values;                                     # Get forecaster first name values
             Workbooks[cls].fcstrs += zip( fcstID, lname, fname );               # Zip up the forecaster id, last name, and first name and append values to the 'fcstrs' attribute of the ExcelBook object
+      
+      # Create xlsx file for ALL forecasters
+      xlsFile = os.path.join( self.outdir, 'All_Forecasters.xlsx' )
+      Workbooks['all'] = ExcelBook( xlsFile );
+      fcstID = roster[fcst_tag].values;                                         # Get forecaster id values
+      lname  = roster[lname_tag].values;                                        # Get forecaster last name values
+      fname  = roster[fname_tag].values;                                        # Get forecaster first name values
+      Workbooks['all'].fcstrs += zip( fcstID, lname, fname );                   # Zip up the forecaster id, last name, and first name and append values to the 'fcstrs' attribute of the ExcelBook object
+
     return Workbooks;                                                           # Return the Workbooks dictionary
