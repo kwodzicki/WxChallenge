@@ -9,6 +9,19 @@ try:
 except:
   from urllib.request import urlopen;
 
+_googleHead = [
+    'Name',                 'Given Name',           'Additional Name', 
+    'Family Name',          'Yomi Name',            'Given Name Yomi', 
+    'Additional Name Yomi', 'Family Name Yomi',     'Name Prefix', 
+    'Name Suffix',          'Initials',             'Nickname',
+    'Short Name',           'Maiden Name',          'Birthday',
+    'Gender',               'Location',             'Billing Information', 
+    'Directory Server',     'Mileage',              'Occupation', 
+    'Hobby',                'Sensitivity',          'Priority', 
+    'Subject',              'Notes',                'Language', 
+    'Photo',                'Group Membership',     'E-mail 1 - Type', 
+    'E-mail 1 - Value']
+
 ################################################################################
 def getSemester( date ):
   return 'spring' if date.month < 8 else 'fall';
@@ -159,8 +172,8 @@ def fix_Roster_CSV( filename, semester, loglevel = logging.WARNING ):
       if len(tmp) == 2:                                                         # If two values obtained from split
         data[ id ] = tmp[0];                                                    # Place the first split value into the last column of the current row
         data.insert( id+1, tmp[1] );                                            # Insert second value of the split into the data list as first value of next row into the data list
-      log.debug( sub )
       sub = [ val.strip() for val in data[i:i+nCol] ];                          # Iterate over all values from i to i+nCol and strip off any preceding/trailing spaces and save new sub list for the row in sub
+      log.debug( sub )
       lines.append( sub );                                                      # Join the line on comma, append carriage return, and append to lines list
       i += nCol;                                                                # Increment i by nCol
     classIDs, fnameID, lnameID = _get_CSV_Indices( head );                      # Determine some indexing variables
@@ -235,3 +248,26 @@ def tally_classes( filename ):
             classes[ tmp[i] ]['students'].append( name );                       # Append student name to the students list
     for tag in classes: classes[tag]['students'].sort();                        # Sort list of students in each sub-dictionary
   return classes;                                                               # Return the classes dictionary
+
+##############################################################################
+def roster2GoogleCSV( filename ):
+    if not os.path.isfile( filename ): return False
+    fix_Roster_CSV( filename )
+    email = os.path.join( os.path.dirname(filename), 'emails.csv' )
+
+    with open(filename, 'r') as fid:
+        lines = fid.readlines()[1:]
+    lines = [ line.rstrip().split(',') for line in lines ]
+
+    with open(email, 'w') as eid:
+        eid.write( '{}\n'.format( ','.join( _googleHead ) ) )
+        for line in lines:
+            data     = [''] * len( _googleHead )
+            data[ 0] = '{} {}'.format( *line[-3:-1] )       
+            data[ 1] = line[-3]
+            data[ 3] = line[-2]
+            data[-3] = '* myContacts'
+            data[-2] = '* Work' 
+            data[-1] = line[-1]
+            eid.write( '{}\n'.format( ','.join(data) ) )
+    return True
