@@ -84,6 +84,7 @@ class forecasts( pandas.DataFrame ):
       self.set_index( index, inplace=True );                                    # Set columns to use as indices; done inplace
       self.sort_index( inplace = True );                                        # Sort the data using indices; done inplace
     self.grades = None;                                                         # Set grades attribute to None;
+
   ##############################################################################
   def get_lvl_vals(self, names = None):
     data = [];
@@ -97,6 +98,7 @@ class forecasts( pandas.DataFrame ):
       if i[:-1] not in uniq:                                                    # If the list (excluding date) is NOT in the uniq list
         uniq.append( i[:-1] );                                                  # Append it
     return data, uniq;                                                          # Return all data AND the uniq values
+
   ##############################################################################
   def calc_grades(self, model = None, vacation = None):
     '''
@@ -163,11 +165,11 @@ class forecasts( pandas.DataFrame ):
         err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
 
         sch_con = np.clip( (schConErr - err) / schErrSTD, 0.0, None );          # Normalized difference between school error and forecaster error
-        ntl_con = fcstr['norm_city'].values[-1] / 10.0;
-        if ntl_con > 1.0:
-          ntl_con = 0.0
-        else:
-          ntl_con = -ntl_con + 1.5
+        ntl_con = np.clip( -fcstr['norm_city'].values[-1] / 10.0, -1.0, None)+1.0;
+#        if ntl_con > 1.0:
+#          ntl_con = 0.0
+#        else:
+#          ntl_con = -ntl_con + 1.5
 
         if model is not None:                                                   # If model is NOT none
           if len(climatology) == numDays:                                       # If the climatology data ar the same length as the forecaster data
@@ -175,7 +177,7 @@ class forecasts( pandas.DataFrame ):
             climoErr  = climatology['err_total'].values;                        # Daily error for climatology
             climoNorm = climatology['norm_city'].values / 10.0;                 # Cumulative normalized climatology error for the city; scaled back to standard deviations
 
-            climo = (miss == False) & (climoErr < fcstErr) & (climoNorm > 2.0); # Boolean for forecast NOT missed, climatology error less than forecast error, and normalized climo error worse than 2 standard deviations from national consensus
+            climo = (miss == False) & (climoErr < fcstErr) & (climoNorm > 3.0); # Boolean for forecast NOT missed, climatology error less than forecast error, and normalized climo error worse than 2 standard deviations from national consensus
             climo = -climo_penalize * np.clip(sum(climo), 0, required);         # Multiply by climo penalization
 
         score = 100.0 + abse + climo;                                           # Compute score; do NOT include beating national or school consensus

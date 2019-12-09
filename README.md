@@ -31,7 +31,7 @@ in the `data.py` file, be default grading is discussed below:
      (i.e., 30% / required days), with a maximum penalty of **30%** possible.
 
      __Note:__ The cumulative normalized climatology error for the city must be greater
-     than 2 standard deviations worse than national consensus (i.e., > 20.0)
+     than 3 standard deviations worse than national consensus (i.e., > 30.0)
      for this penalty to occur.
      
   - Bonus:
@@ -39,10 +39,8 @@ in the `data.py` file, be default grading is discussed below:
     Awarded for beating national and/or local consensus.
      - Local consensus: 
      
-     	You can receive up to **1%** bonus for beating 
-     	the school consensus; everyone with fewer error points than school 
-     	consensus gets bonus, with all bonus scaled between zero and one
-     
+		Points awarded as standard devitations better than local forecasters.
+ 
      - National consensus: 
      
      	For the national consensus, you must be within one standard deviation of
@@ -50,9 +48,10 @@ in the `data.py` file, be default grading is discussed below:
      	This means that the normalized cumulative city score must be less than 
      	**10.0**. The following formula is then used to compute the bonus:
      
-     		-(norm_score / 10.0) + 1.5
+     		-(norm_score / 10.0) + 1.0
      		
-     	The is no upper limit to the national consensus bonus
+     	The is no upper limit to the national consensus bonus and is scaled
+		as standard deviations from national consensus.
 
 ### Excel Spreadsheet Files
   
