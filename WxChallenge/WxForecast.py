@@ -1,34 +1,73 @@
 # Import column naming data
-try:
-  from data import forecastCols as cols;
-  from data import grd_df_cols, miss_allowed, fcst_per_city;
-except:
-  from .data import forecastCols as cols;
-  from .data import grd_df_cols, miss_allowed, fcst_per_city;
+import logging
 import pandas;
 import numpy as np;
+
+from .data import forecastCols as cols;
+from .data import grd_df_cols, miss_allowed, fcst_per_city;
 
 required       = fcst_per_city - miss_allowed
 miss_penalize  = 100.0 / required;
 climo_penalize =  30.0 / required;
+
 ##############################################################################
-def get_level_list(input, levels):
-  '''get list of MultiIndex levels'''
+def get_level_list(vals, levels):
+  """
+  Get list of MultiIndex levels
+  
+  Note:
+    Need to figure out what this does exactly.
+    Also, pandas update changed the labels attribute to codes
+
+  """
+
   lvl_vals = [];
-  for i in range( len(input.index.labels) ):
-    if input.index.names[i] not in levels: continue
-    j = input.index.labels[i][0]
-    lvl_vals.append( input.index.levels[i][j] );
+  for i in range( len(vals.index.codes) ):
+    if vals.index.names[i] not in levels: continue
+    j = vals.index.codes[i][0]
+    lvl_vals.append( vals.index.levels[i][j] );
   return lvl_vals;      
 
-##############################################################################
-def get_indices(values, check):
-  '''get list of MultiIndex levels'''
-  index = np.full( len(values[0]), True );
-  for i in range( len(values) ): index = index & (values[i] == check[i]);
-  return index; 
+def calc_error( fcst, verify ):
+  error  = 0
+  factor = [1, 1, 0.5]
+  for i in range(3):
+    error += abs(round(fcst[i]) - verify[i]) * factor[i]
 
-def calc_School_Norm( fcData ):
+  pf  = int(round(fcst[  -1], 2) * 100)
+  pv  = int(verify[-1] * 100)
+  if pf > pv:
+    start, end = pv, pf
+  else:
+    start, end = pf, pv
+  for i in range(start, end):
+    if i >= 50:
+      error += 0.1
+    elif i >= 25:
+      error += 0.2
+    elif i >= 10:
+      error += 0.3
+    else:
+      error += 0.4
+  return error
+
+def calc_School_Norm( fcData, verify ):
+  if len(verify) == 0:
+    raise Exception('Invalid varification data!')
+  error    = 0.0
+  fcstDays = fcData.index.get_level_values('day')                              # Get the forecast days for the city, i.e., 1, 2, 3, etc.
+  fcstType = fcData.type.values
+  for i in range(1, fcstDays.max()+1 ):
+    index  = (fcstDays == i) & (fcstType != '')                                 # Indices for forecasts on given day that are human (i.e., not guidance or climo)
+    if not any(index): continue
+    data   = fcData.loc[index]                                                  # Filter date by indices
+    date   = data.date.values[0]                                                # Get date
+    if date in verify:                                                          # If date in verify
+      fcst   = data[['max','min','wind','precip']].values.mean(0)               # Get mean forecast
+      error += calc_error(fcst, verify[date][-4:])                              # Compute error and add to cumulative error
+  return error                       # Value of the cumulative consensus error
+
+def get_School_Norm( fcData, verify ):
   '''
   This function returns the consensus cumulative error for
   a school and the standard deviation for the cumulative error 
@@ -36,20 +75,29 @@ def calc_School_Norm( fcData ):
   in the DataFrame
   '''
   schConsen = fcData.index.get_level_values('name') == 'CONSEN';              # Get consensus for the school for the given station
-  schConsen = fcData.loc[ schConsen ];                                        # Get data for consensus for the school
-  fcstDays  = schConsen.index.get_level_values('day');                        # Get the forecast days for the city, i.e., 1, 2, 3, etc.
-  maxDay    = fcstDays.max();                                                 # Get latest forecast day
-  id        = fcstDays == maxDay;
-  schConErr = schConsen.loc[id]['cum_err_total'].values[0];                   # Value of the cumulative consensus error
-  
+  if not any( schConsen ):
+    schConErr = calc_School_Norm( fcData, verify )
+  else:
+    #print( calc_School_Norm( fcData, verify ) )
+    
+    schConsen = fcData.loc[ schConsen ];                                        # Get data for consensus for the school
+    fcstDays  = schConsen.index.get_level_values('day');                        # Get the forecast days for the city, i.e., 1, 2, 3, etc.
+    maxDay    = fcstDays.max();                                                 # Get latest forecast day
+    index     = fcstDays == maxDay;
+    #print( schConsen.loc[index]['cum_err_total'].values );                   # Value of the cumulative consensus error
+    schConErr = schConsen.loc[index]['cum_err_total'].values[0];                   # Value of the cumulative consensus error
+  #print( schConErr )
+
   fcstDays  = fcData.index.get_level_values('day');
+  maxDay    = fcstDays.max();                                                 # Get latest forecast day
   category  = fcData.index.get_level_values('category');
-  id        = (fcstDays == maxDay) & (category < 9);
-  fcConErr  = fcData.loc[id]['cum_err_total'].values;                         # Value of the cumulative consensus error
+  fcstType  = fcData.type.values
+  index     = (fcstDays == maxDay) & (category < 9) & (fcstType != '')
+  fcConErr  = fcData.loc[index]['cum_err_total'].values;                         # Value of the cumulative consensus error
   return schConErr, np.std( fcConErr);
 
 ################################################################################
-class forecasts( pandas.DataFrame ):
+class Forecasts( pandas.DataFrame ):
   '''
   Sub-class of pandas DataFrame that stores all forecast data
   read in from the SQL database using multidimensional indexing.
@@ -70,11 +118,19 @@ class forecasts( pandas.DataFrame ):
        columns  : List of names for columns
        index    : List of columns to use a indices
     '''
-    pandas.DataFrame.__init__(self, data, columns = columns);                   # Initialize the DataFrame
+    super().__init__(data, columns = columns);                   # Initialize the DataFrame
+    self.__log = logging.getLogger(__name__)
     if index is not None:                                                       # If index is NOT None
       self.set_index( index, inplace=True );                                    # Set columns to use as indices; done inplace
       self.sort_index( inplace = True );                                        # Sort the data using indices; done inplace
     self.grades = None;                                                         # Set grades attribute to None;
+
+  def get_indices(self, values, check):
+    '''get list of MultiIndex levels'''
+    index = np.full( len(values[0]), True );
+    for i in range( len(values) ): index = index & (values[i] == check[i]);
+    return index; 
+
   ##############################################################################
   def get_lvl_vals(self, names = None):
     data = [];
@@ -82,8 +138,9 @@ class forecasts( pandas.DataFrame ):
     for name in names: 
       data.append( self.index.get_level_values( name ) );
     return data, set( [i for i in zip(*data)] );
+
   ##############################################################################
-  def calc_grades(self, model = None):
+  def calc_grades(self, model = None, verify=None):
     gradeCol, gradeInd = self.gradeColInd();                                    # Get the column and index names to be used in the final grades DataFrame
     grades = [];                                                                # Initialize a list to store grades during iteration
     levels = ['school','year','semester','identifier'];                         # List of levels to sort by when iterating
@@ -91,40 +148,40 @@ class forecasts( pandas.DataFrame ):
     if model is not None:                                                       # If model is NOT None
       mdVal, mdUNIQ = model.get_lvl_vals( levels[1:] );                         # Get complete list of levels and list of unique levels; don't use the school value
       if len(stUNIQ) != len(mdUNIQ):                                            # If the length of unique values from the forecasts does NOT match that of the model
-        print( 'Forecaster and model data missmatch!' );                        # Print a message
+        self.__log.warning( 'Forecaster and model data missmatch!' );                        # Print a message
         model = None;                                                           # Disable model
     for stid in stUNIQ:                                                         # Iterate over the unique levels
-      locStat   = get_indices( stVal, stid );                                   # Get location of unique station
+      locStat   = self.get_indices( stVal, stid )                               # Get location of unique station
       fcData    = self.loc[ locStat ];                                          # Subset the forecasts using the location
-      schConErr, schErrSTD = calc_School_Norm( fcData );
+      schConErr, schErrSTD = get_School_Norm( fcData, verify )
 
       if model is not None:                                                     # If model is NOT None
-        locStat     = get_indices( mdVal, stid[1:] );                           # Get location of unique station in the model data
+        locStat     = self.get_indices( mdVal, stid[1:] );                      # Get location of unique station in the model data
         mdData      = model.loc[ locStat ];                                     # Subset the modeld data using the location
         mdNames     = mdData.index.get_level_values('name');                    # Get list of level names from the subset data
-        ntlConsen   = mdNames == 'CONSEN';                                      # Get location of national consensus data for the location
-        ntlConsen   = mdData.loc[ ntlConsen ];                                  # Subset national consensus data for the location
-        climatology = mdNames == 'CLIMO0';                                      # Get location of climatology data for the location
+        #climatology = mdNames == 'CLIMO0';                                      # Get location of climatology data for the location
+        climatology = mdNames == 'CLIMO_';                                      # Get location of climatology data for the location
         climatology = mdData.loc[ climatology ];                                # Subset climatology data for the location
       
       for fcstr in self.level_iter( 'name', fcData, ['CONSEN'] ):               # Iterate over all the forecasters for the station, skipping consensus
-        numDays = len( fcstr );                                                 # Number of forecast days
-        if numDays == 0: continue;                                              # If there are NO forecasts for the day, continue
-        abse    = climo = sch_con = ntl_con = 0.0;                              # Initialize absence, climatology, school consensus, and national consensus deductions/bonuses to zero (0.0)
-        miss    = fcstr['abs'].values != 0;                                     # Array of boolean values to check absence from game
-        nmiss   = fcstr['abs'].values.max();                                    # Get the number of missed forecasts; the maximum number from the abs column
-        nFcsts  = numDays - nmiss;                                              # Number of forecasted submitted
-        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize;        # Compute absence deductions; 2 free misses before deductions
-        err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
-        sch_con = (err - schConErr) * 10.0 / schErrSTD;
-        sch_con = np.clip( -sch_con, 0.0, None );
-        ntl_con = fcstr['norm_city'].values[-1];
-        ntl_con = np.clip( -ntl_con, 0.0, None );
+        numDays = len( fcstr )                                                  # Number of forecast days
+        if numDays == 0: continue                                               # If there are NO forecasts for the day, continue
+        abse    = climo = sch_con = ntl_con = 0.0                               # Initialize absence, climatology, school consensus, and national consensus deductions/bonuses to zero (0.0)
+        miss    = fcstr['abs'].values != 0                                      # Array of boolean values to check absence from game
+        nmiss   = fcstr['abs'].values.max()                                     # Get the number of missed forecasts; the maximum number from the abs column
+        nFcsts  = numDays - nmiss                                               # Number of forecasted submitted
+        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize         # Compute absence deductions; 2 free misses before deductions
+        err     = fcstr['cum_err_total'].values[-1]                             # Get cumulative error value
+        sch_con = (err - schConErr) * 10.0 / schErrSTD 
+        
+        sch_con = np.clip( (schConErr - err) / schErrSTD, 0.0, None )
+        ntl_con = np.clip( -fcstr['norm_city'].values[-1] / 10.0, -1.0, None)+1.0
 
         if model is not None:                                                   # If model is NOT none
           if len(climatology) == numDays:                                       # If the climatology data ar the same length as the forecaster data
             fcstErr  = fcstr[      'err_total'].values;                         # Daily error for the forecaster
             climoErr = climatology['err_total'].values;                         # Daily error for climatology
+            #print(climoErr)
             climo    = sum( (miss == False) & (climoErr < fcstErr) );           # Sum the boolean array array that is True when forecaster DID forecast but did NOT beat climatology.
             climo    = -climo_penalize * np.clip(climo, 0, required);           # Multiply by climo penalization
 #         score = 100.0 + abse + climo + sch_con + ntl_con;                     # Compute score for missing
@@ -159,9 +216,9 @@ class forecasts( pandas.DataFrame ):
     namesUNIQ = names.unique();
     for name in namesUNIQ:
       if grades:
-        yield forecaster( self.grades.loc[ names == name ], name, grades);
+        yield Forecaster( self.grades.loc[ names == name ], name, grades);
       else:
-        yield forecaster( self.loc[ names == name ], name, grades );
+        yield Forecaster( self.loc[ names == name ], name, grades );
   ##############################################################################
   def gradeColInd(self):
     '''
@@ -256,7 +313,7 @@ class forecasts( pandas.DataFrame ):
     
     
 ################################################################################
-class forecaster( pandas.DataFrame ):
+class Forecaster( pandas.DataFrame ):
   _categories = {0 : 'Professional', 
                  1 : 'Faculty/Staff/Post-Doc',
                  2 : 'Grad-Student',

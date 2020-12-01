@@ -1,4 +1,4 @@
-'''
+"""
 Descriptions of key/value pairs in the dictionaries below
   name       : Specificies the name of the SQL column/name of attributes
                 associated with these data.
@@ -10,7 +10,8 @@ Descriptions of key/value pairs in the dictionaries below
                 column.
   pandas_ind : Signifies if this variable is to be used as a pandas dataframe
                 index, or row.
-'''
+"""
+
 # Columns for data in the WxChallenge resutls table
 resultsCols = [
   {'name' : 'rank',            'type' : 'INTEGER', 'pandas_col' : True,  'pandas_ind' : False, 'pandas_ind_num' : None},
@@ -57,6 +58,18 @@ scheduleCols = [{'name' : 'city',  'type' : 'TEXT'},
                 {'name' : 'ident', 'type' : 'TEXT'},
                 {'name' : 'start', 'type' : 'DATE'},
                 {'name' : 'end',   'type' : 'DATE'}];
+
+# Columns for verification
+verifyCols = [{'name' : 'city',     'type' : 'TEXT'},
+              {'name' : 'state',    'type' : 'TEXT'},
+              {'name' : 'ident',    'type' : 'TEXT'},
+              {'name' : 'date',     'type' : 'DATE'},
+              {'name' : 'max',      'type' : 'INTEGER'},
+              {'name' : 'min',      'type' : 'INTEGER'},
+              {'name' : 'wind',     'type' : 'INTEGER'},
+              {'name' : 'precip',   'type' : 'REAL'}]
+
+verifyChckCols = ['city', 'state', 'ident', 'date']
 
 # Columns used for checking if a forecast exists in the SQL table of forecasts.
 #  This is used to check if a forecast exists for the given date. If it does, then
