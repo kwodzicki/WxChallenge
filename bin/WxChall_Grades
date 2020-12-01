@@ -1,29 +1,61 @@
 #!/usr/bin/env python
+import logging;
+import argparse;                                                              # Import library for parsing
+from datetime import datetime
+
+from WxChallenge import LOG
+from WxChallenge.version import __version__
 
 from WxChallenge.WxExcel import WxChall_Grades_Excel;#, WxChall_Forecasts_Excel;
 
 if __name__ == "__main__":
-  import argparse;                                                              # Import library for parsing
-  parser = argparse.ArgumentParser(description="WxChallenge Grades");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument("-v", "--verbose", action='store_true', 
-	  help="Increase verbosity");                                                 # Verbose option at command line
-  parser.add_argument("-o", "--outdir", type=str, 
-	  help="Output directory for SpreadSheets. Default is home directory");       # Verbose option at command line
-  parser.add_argument("schools", type=str, nargs='*', 
-	  help="School code(s). Only data for these schools will be scraped");        # Schools option at command line
-  parser.add_argument("semester", type=str, 
-	  help="Semester to score; fall or spring");                                  # Semester option at command line
-  parser.add_argument("year", type=int, 
-	  help="Year to score; should be used with semester");                        # Year option at command line
-  parser.add_argument("roster", type=str, 
-	  help="Path to CSV roster file");                                            # Semester option at command line
+
+  dateFMT = '%Y%m%d'
+  parser  = argparse.ArgumentParser(description="WxChallenge Grades");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.add_argument('-v', '--verbose',
+    type    = str, 
+    nargs   = '?',
+    default = 'warning',
+    choices = ['debug', 'info', 'warning', 'error', 'critcal'],
+	help    = "Increase verbosity. Default is warning");                        # Verbose option at command line
+  parser.add_argument("-o", "--outdir",
+    type = str, 
+	help = "Output directory for SpreadSheets. Default is home directory");     # Verbose option at command line
+  parser.add_argument("--vacation", 
+    type   = lambda x: x.split(',', 2), 
+    action = 'append',
+	help   = "Comma seperated string with start,end date of a school break when forecasting not required. Dates must be formated as YYYYMMDD");       # Verbose option at command line
+  parser.add_argument("schools",
+    type  = str,
+    nargs = '*', 
+	help  = "School code(s). Only data for these schools will be scraped");        # Schools option at command line
+  parser.add_argument("semester",
+    type = str, 
+	help = "Semester to score; fall or spring");                                  # Semester option at command line
+  parser.add_argument("year",
+    type = int, 
+	help = "Year to score; should be used with semester");                        # Year option at command line
+  parser.add_argument("roster",
+    type = str, 
+	help = "Path to CSV roster file");                                            # Semester option at command line
+  parser.add_argument('--version',
+    action  = 'version',
+    version = '%(prog)s ' + __version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
+  log.setLevel( getattr(logging, args.verbose.upper() ) )
+
+  if args.vacation is not None:
+    for i in range( len(args.vacation) ):
+      sDate, eDate = args.vacation[i]
+      args.vacation[i] = (datetime.strptime(sDate, dateFMT).date(),
+                          datetime.strptime(eDate, dateFMT).date() )
+
   if len(args.schools) == 0: args.schools = None;                               # If the length of schools argument is zero, then set to None
   inst = WxChall_Grades_Excel( args.semester, args.year, args.roster,
     school   = args.schools,
     verbose  = args.verbose);
-  inst.grades( args.outdir );
+  inst.grades( outdir = args.outdir, vacation = args.vacation );
 #  inst = WxChall_Forecasts_Excel( args.semester, args.year, args.roster,
 #    school   = args.schools,
 #    verbose  = args.verbose);

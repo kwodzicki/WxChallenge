@@ -164,6 +164,8 @@ class WxSQLite( WxGrabber ):
     else:                                                                       # Else,
       whr = self.__buildWhere( vars );                                          # Use the private method to build a where statement for the command
       cmd = 'SELECT * FROM forecasts {}'.format( whr );                         # Set command with where statment
+    self.log.debug( 'SQL command: {}'.format( cmd  ) )
+    self.log.debug( 'SQL values:  {}'.format( vals ) )
     self.cursor.execute(cmd, vals);                                             # Execute the command
     cols = [i['name'] for i in WxData.forecastCols];
     indx = ['' for col in cols];

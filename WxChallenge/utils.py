@@ -1,3 +1,4 @@
+import logging
 import os
 import datetime
 
@@ -7,6 +8,23 @@ from bs4 import BeautifulSoup
 from urllib.request import urlopen
 
 from .roster import fix_Roster_CSV
+
+_googleHead = [
+    'Name',                 'Given Name',           'Additional Name', 
+    'Family Name',          'Yomi Name',            'Given Name Yomi', 
+    'Additional Name Yomi', 'Family Name Yomi',     'Name Prefix', 
+    'Name Suffix',          'Initials',             'Nickname',
+    'Short Name',           'Maiden Name',          'Birthday',
+    'Gender',               'Location',             'Billing Information', 
+    'Directory Server',     'Mileage',              'Occupation', 
+    'Hobby',                'Sensitivity',          'Priority', 
+    'Subject',              'Notes',                'Language', 
+    'Photo',                'Group Membership',     'E-mail 1 - Type', 
+    'E-mail 1 - Value']
+
+getTemp = lambda x: int( x.split(u'\xb0')[0][1:] )                              # Lambda function to pull out temperature from string
+getWind = lambda x: int( x.split()[0]  )                                                    # Lambda function to pull out wind from string
+getPrec = lambda x: float( x.split('"')[0] )                                    # Lambda function to pull out precip from string
 
 ################################################################################
 def getSemester( date ):
@@ -155,8 +173,27 @@ def splitCityState(citySt):
     return ','.join( citySt[:-1] ).strip(), citySt[-1].strip()
   return citySt[0].strip(), ''
 
-getTemp = lambda x: int( x.split(u'\xb0')[0][1:] )                              # Lambda function to pull out temperature from string
-getWind = lambda x: int( x.split()[0]  )                                                    # Lambda function to pull out wind from string
-getPrec = lambda x: float( x.split('"')[0] )                                    # Lambda function to pull out precip from string
 
 
+##############################################################################
+def roster2GoogleCSV( filename ):
+    if not os.path.isfile( filename ): return False
+    fix_Roster_CSV( filename )
+    email = os.path.join( os.path.dirname(filename), 'emails.csv' )
+
+    with open(filename, 'r') as fid:
+        lines = fid.readlines()[1:]
+    lines = [ line.rstrip().split(',') for line in lines ]
+
+    with open(email, 'w') as eid:
+        eid.write( '{}\n'.format( ','.join( _googleHead ) ) )
+        for line in lines:
+            data     = [''] * len( _googleHead )
+            data[ 0] = '{} {}'.format( *line[-3:-1] )       
+            data[ 1] = line[-3]
+            data[ 3] = line[-2]
+            data[-3] = '* myContacts'
+            data[-2] = '* Work' 
+            data[-1] = line[-1]
+            eid.write( '{}\n'.format( ','.join(data) ) )
+    return True

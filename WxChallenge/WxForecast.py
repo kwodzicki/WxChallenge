@@ -130,7 +130,6 @@ class Forecasts( pandas.DataFrame ):
     index = np.full( len(values[0]), True );
     for i in range( len(values) ): index = index & (values[i] == check[i]);
     return index; 
-
   ##############################################################################
   def get_lvl_vals(self, names = None):
     data = [];
@@ -138,13 +137,33 @@ class Forecasts( pandas.DataFrame ):
     for name in names: 
       data.append( self.index.get_level_values( name ) );
     return data, set( [i for i in zip(*data)] );
+    #dates  = self['date'].values;                                               # Get date values for forecasts
+    #info   = sorted( set( zip( *data, dates ) ), key = lambda x: x[-1] );       # Zip up the index values with the dates, find unique tuples, then sort based on date
+    #uniq   = [];                                                                # Array for unique values
+    #for i in info:                                                              # Iterate over values in info
+    #  if i[:-1] not in uniq:                                                    # If the list (excluding date) is NOT in the uniq list
+    #    uniq.append( i[:-1] );                                                  # Append it
+    #return data, uniq;                                                          # Return all data AND the uniq values
+
 
   ##############################################################################
-  def calc_grades(self, model = None, verify=None):
+  def calc_grades(self, model = None, verify = None, vacation = None):
+    '''
+    Purpose:
+      Method for calculating grades for forecasters
+    Inputs:
+      None.
+    Outputs:
+      None; updates the grades attribute of this class
+    Keywords:
+      model    : Model data to compare to
+      vacation : List of tuples with start and end dates of any vacations
+    '''
     gradeCol, gradeInd = self.gradeColInd();                                    # Get the column and index names to be used in the final grades DataFrame
     grades = [];                                                                # Initialize a list to store grades during iteration
     levels = ['school','year','semester','identifier'];                         # List of levels to sort by when iterating
     stVal, stUNIQ = self.get_lvl_vals( levels );                                # Get complete list of levels and list of unique levels
+
     if model is not None:                                                       # If model is NOT None
       mdVal, mdUNIQ = model.get_lvl_vals( levels[1:] );                         # Get complete list of levels and list of unique levels; don't use the school value
       if len(stUNIQ) != len(mdUNIQ):                                            # If the length of unique values from the forecasts does NOT match that of the model
@@ -164,34 +183,60 @@ class Forecasts( pandas.DataFrame ):
         climatology = mdData.loc[ climatology ];                                # Subset climatology data for the location
       
       for fcstr in self.level_iter( 'name', fcData, ['CONSEN'] ):               # Iterate over all the forecasters for the station, skipping consensus
-        numDays = len( fcstr )                                                  # Number of forecast days
-        if numDays == 0: continue                                               # If there are NO forecasts for the day, continue
-        abse    = climo = sch_con = ntl_con = 0.0                               # Initialize absence, climatology, school consensus, and national consensus deductions/bonuses to zero (0.0)
-        miss    = fcstr['abs'].values != 0                                      # Array of boolean values to check absence from game
-        nmiss   = fcstr['abs'].values.max()                                     # Get the number of missed forecasts; the maximum number from the abs column
-        nFcsts  = numDays - nmiss                                               # Number of forecasted submitted
-        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize         # Compute absence deductions; 2 free misses before deductions
-        err     = fcstr['cum_err_total'].values[-1]                             # Get cumulative error value
-        sch_con = (err - schConErr) * 10.0 / schErrSTD 
+        numDays = len( fcstr );                                                 # Number of forecast days
+        if numDays == 0: 
+          self.__log.warning( 'No forecasts found!' );
+          continue;                                                             # If there are NO forecasts for the day, continue
+
+        abse    = 0.0
+        climo   = 0.0
+        sch_con = 0.0
+        ntl_con = 0.0;                              # Initialize absence, climatology, school consensus, and national consensus deductions/bonuses to zero (0.0)
+        vacaN   = 0
+        miss    = fcstr['abs'].values;                                          # Cumulative absence array
+        miss    = np.insert( (miss[1:] - miss[0:-1]), 0, miss[0]);              # Binary flag for if forecaster missed a forecast day
+        nmiss   = fcstr['abs'].values.max();                                    # Get the number of missed forecasts; the maximum number from the abs column
         
-        sch_con = np.clip( (schConErr - err) / schErrSTD, 0.0, None )
-        ntl_con = np.clip( -fcstr['norm_city'].values[-1] / 10.0, -1.0, None)+1.0
+        if isinstance( vacation, (list, tuple,) ):                              # If there were vacations input
+          for vaca in vacation:                                                 # Iterate over the vacations
+            vacaID = ( (fcstr['date'].values >= vaca[0]) & 
+                      (fcstr['date'].values <= vaca[1]) )                       # Indices for days at given forecast city that are within the break
+            vacaN  = sum( vacaID )
+            if vacaN > 0:
+              self.__log.debug( 'Found {} forecasts during break'.format(vacaN) )
+              nmiss  -= vacaN;                                                  # Remove number of days of break from missed forecasts count
+              vacaN  -= sum( miss[vacaID] )              
+        nFcsts  = numDays - nmiss;                                              # Number of forecasts submitted
+        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize;        # Compute absence deductions; 2 free misses before deductions
+        err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
+
+        sch_con = np.clip( (schConErr - err) / schErrSTD, 0.0, None );          # Normalized difference between school error and forecaster error
+        ntl_con = np.clip( -fcstr['norm_city'].values[-1] / 10.0, -1.0, None)+1.0;
+#        if ntl_con > 1.0:
+#          ntl_con = 0.0
+#        else:
+#          ntl_con = -ntl_con + 1.5
 
         if model is not None:                                                   # If model is NOT none
           if len(climatology) == numDays:                                       # If the climatology data ar the same length as the forecaster data
-            fcstErr  = fcstr[      'err_total'].values;                         # Daily error for the forecaster
-            climoErr = climatology['err_total'].values;                         # Daily error for climatology
-            #print(climoErr)
-            climo    = sum( (miss == False) & (climoErr < fcstErr) );           # Sum the boolean array array that is True when forecaster DID forecast but did NOT beat climatology.
-            climo    = -climo_penalize * np.clip(climo, 0, required);           # Multiply by climo penalization
-#         score = 100.0 + abse + climo + sch_con + ntl_con;                     # Compute score for missing
+            fcstErr   = fcstr[      'err_total'].values;                        # Daily error for the forecaster
+            climoErr  = climatology['err_total'].values;                        # Daily error for climatology
+            climoNorm = climatology['norm_city'].values / 10.0;                 # Cumulative normalized climatology error for the city; scaled back to standard deviations
+
+            climo = (miss == False) & (climoErr < fcstErr) & (climoNorm > 3.0); # Boolean for forecast NOT missed, climatology error less than forecast error, and normalized climo error worse than 2 standard deviations from national consensus
+            climo = -climo_penalize * np.clip(sum(climo), 0, required);         # Multiply by climo penalization
+
         score = 100.0 + abse + climo;                                           # Compute score; do NOT include beating national or school consensus
         indVals = get_level_list(fcstr, gradeInd);                              # Get the values for, what will be, the index columns
-        grades.append( indVals+[nFcsts, abse, climo, sch_con, ntl_con, score] );# Append grades to the grades list
+        grades.append( 
+          indVals+[nFcsts, abse, vacaN, climo, sch_con, ntl_con, score]
+        );# Append grades to the grades list
     self.grades = pandas.DataFrame(grades, columns = gradeCol);                 # Initialize DataFrame using grades list and gradeCols for columns
     if gradeInd is not None:                                                    # If columns to use as indices is NOT None
       self.grades.set_index(gradeInd, inplace=True);                            # Set columns to use as indices; inplace
-      self.grades.sort_index(inplace=True);                                     # Sort based on index; inplace
+    
+    school_con = self.grades[ gradeCol[-3] ].values
+    self.grades[ gradeCol[-3] ] = (school_con / school_con.max())
   ##############################################################################
   def iterForecasters(self, grades = False):
     '''
@@ -244,6 +289,16 @@ class Forecasts( pandas.DataFrame ):
     return cols, inds;                                                          # Return cols and inds
   ##############################################################################
   def name_iter(self, names, data = None):
+    '''
+    Purpose:
+      Method for creating iterator over forecaster names
+    Inputs:
+      names: List of names
+    Outputs:
+      Returns iterator
+    Keywords:
+      data     : Dictionary of data
+    '''
     if data is None:
       for name in names:
         yield self.loc[ self.index.get_level_values('name') == name ];
@@ -252,6 +307,16 @@ class Forecasts( pandas.DataFrame ):
         yield data[ data.index.get_level_values('name') == name ];
   ##############################################################################
   def identifier_iter(self, identifier, data = None):
+    '''
+    Purpose:
+      Method for creating iterator over forecast cities
+    Inputs:
+      names: List of city identifiers
+    Outputs:
+      Returns iterator
+    Keywords:
+      data     : Dictionary of data
+    '''
     if data is None:
       for ident in identifier:
         yield self.loc[ self.index.get_level_values('identifier') == ident ];
@@ -260,6 +325,16 @@ class Forecasts( pandas.DataFrame ):
         yield data[ data.index.get_level_values('identifier') == ident ];
   ##############################################################################
   def level_iter(self, level, data = None, skip = []):
+    '''
+    Purpose:
+      Method for creating iterator over forecaster level (freshman/sophomore, etc.)
+    Inputs:
+      names: List of forecaster levels
+    Outputs:
+      Returns iterator
+    Keywords:
+      data     : Dictionary of data
+    '''
     if data is None:
       values = self.index.get_level_values(level);
       for val in values.unique(): 
