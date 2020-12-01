@@ -211,11 +211,14 @@ class Forecasts( pandas.DataFrame ):
         err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
 
         sch_con = np.clip( (schConErr - err) / schErrSTD, 0.0, None );          # Normalized difference between school error and forecaster error
-        ntl_con = np.clip( -fcstr['norm_city'].values[-1] / 10.0, -1.0, None)+1.0;
-#        if ntl_con > 1.0:
-#          ntl_con = 0.0
-#        else:
-#          ntl_con = -ntl_con + 1.5
+        sch_con = round(sch_con, 2)                                             # Round to 2 decimal places
+        ntl_con = np.clip( -fcstr['norm_city'].values[-1] / 10.0, -1.0, None)+1.0
+        ntl_con = round(ntl_con, 2)
+
+        #tmp = fcstr.index.get_level_values('name')
+        #if 'sawi24' in tmp:
+        #  print(fcstr.norm_city)
+        #  print( ntl_con)
 
         if model is not None:                                                   # If model is NOT none
           if len(climatology) == numDays:                                       # If the climatology data ar the same length as the forecaster data
@@ -229,7 +232,7 @@ class Forecasts( pandas.DataFrame ):
         score = 100.0 + abse + climo;                                           # Compute score; do NOT include beating national or school consensus
         indVals = get_level_list(fcstr, gradeInd);                              # Get the values for, what will be, the index columns
         grades.append( 
-          indVals+[nFcsts, abse, vacaN, climo, sch_con, ntl_con, score]
+          indVals + [nFcsts, abse, vacaN, climo, sch_con, ntl_con, score]
         );# Append grades to the grades list
     self.grades = pandas.DataFrame(grades, columns = gradeCol);                 # Initialize DataFrame using grades list and gradeCols for columns
     if gradeInd is not None:                                                    # If columns to use as indices is NOT None

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     version = '%(prog)s ' + __version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
-  log.setLevel( getattr(logging, args.verbose.upper() ) )
+  LOG.setLevel( getattr(logging, args.verbose.upper() ) )
 
   if args.vacation is not None:
     for i in range( len(args.vacation) ):

@@ -217,7 +217,7 @@ class WxChall_Grades_Excel( object ):
     self.outdir    = None
     self.Workbooks = None                                                       # Parse data from roster CSV
 
-  def grades(self, outdir = None):
+  def grades(self, outdir = None, vacation = None):
     """
     Compute grades and save data to Excel SpreadSheets
 
@@ -225,7 +225,8 @@ class WxChall_Grades_Excel( object ):
       None.
 
     Keyword arguments:
-      outdir (str) : Optional - set output directory for Excel files
+      outdir (str) : Set output directory for Excel files
+      vacation (list) : List of tuples wtih start and end dates of any vacations
 
     Returns:
       Will create Excel SpreadSheets
@@ -250,7 +251,7 @@ class WxChall_Grades_Excel( object ):
       models   = True
     )                                                                           # Get forecasts based on command line arguments
     verify = set( fcsts.date.values )
-    fcsts.calc_grades( model, self.wx.get_verification( verify ) )
+    fcsts.calc_grades( model, verify = self.wx.get_verification( verify ), vacation = vacation )
     for f in fcsts.iterForecasters(grades = True):                              # Iterate over all the forecasts again
       self.updateSpreadSheets( f )                                              # Call method to update the spreadsheets with the current forecaster's grades
     self.saveSpreadSheets()                                                     # Save all the spreadsheets
