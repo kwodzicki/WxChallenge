@@ -1,10 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import logging;
 import argparse;                                                              # Import library for parsing
 from datetime import datetime
-from WxChallenge import log
+
+from WxChallenge import LOG
 from WxChallenge.version import __version__
-from WxChallenge.WxChall_Excel import WxChall_Grades_Excel;#, WxChall_Forecasts_Excel;
+
+from WxChallenge.WxExcel import WxChall_Grades_Excel;#, WxChall_Forecasts_Excel;
 
 if __name__ == "__main__":
 
@@ -41,7 +43,7 @@ if __name__ == "__main__":
     version = '%(prog)s ' + __version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
-  log.setLevel( getattr(logging, args.verbose.upper() ) )
+  LOG.setLevel( getattr(logging, args.verbose.upper() ) )
 
   if args.vacation is not None:
     for i in range( len(args.vacation) ):

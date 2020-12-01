@@ -1,29 +1,21 @@
 #!/usr/bin/env python3
 import logging;
-from WxChallenge import log, WxChallenge;
+
+from WxChallenge import LOG
+from WxChallenge.WxChallenge import WxChallenge
 from WxChallenge.version import __version__
 
 if __name__ == "__main__":
   import argparse;                                                              # Import library for parsing
   parser = argparse.ArgumentParser(description="WxChallenge Semester Update");     # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument("--debug", action='store_true', 
-    help="Turn on debugging information");
-  parser.add_argument('-v', '--verbose', 
-    type    = str, 
-    nargs   = '?',
-    default = 'warning',
-    choices = ['debug', 'info', 'warning', 'error', 'critcal'],
-	help    = "Increase verbosity. Default is warning");                      # Verbose option at command line
-  parser.add_argument("schools", 
-    type  = str, 
-    nargs = '*', 
-	help  = "School code(s). Only data for these schools will be scraped"); 
-  parser.add_argument("-s", "--semester", 
-    type = str, 
-	help = "Semester to update. MUST be used with year."); 
-  parser.add_argument("-y", "--year", 
-    type = int, 
-	help = "Year to update. MUST be used with semester."); 
+  parser.add_argument("--loglevel", type=int, default=logging.WARNING, help='Set logging level') 
+ 
+  parser.add_argument("schools", type=str, nargs='*', 
+	  help="School code(s). Only data for these schools will be scraped"); 
+  parser.add_argument("-s", "--semester", type=str, 
+	  help="Semester to update. MUST be used with year."); 
+  parser.add_argument("-y", "--year", type=int, 
+	  help="Year to update. MUST be used with semester."); 
   parser.add_argument('--version',
     action = 'version', 
     version = '%(prog)s ' + __version__)
@@ -34,8 +26,10 @@ if __name__ == "__main__":
   if args.semester is None or args.year is None:
 	  args.semester = None;
 	  args.year     = None;
+  LOG.handlers[0].setLevel( args.loglevel )
+
   
-  inst = WxChallenge(verbose = args.verbose);
+  inst = WxChallenge()
   inst.update_Semester( 
 	  semester = args.semester,
 	  year     = args.year,
