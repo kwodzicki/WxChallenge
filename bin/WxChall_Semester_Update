@@ -16,12 +16,13 @@ if __name__ == "__main__":
 	  help="Semester to update. MUST be used with year."); 
   parser.add_argument("-y", "--year", type=int, 
 	  help="Year to update. MUST be used with semester."); 
+  parser.add_argument('--full', action='store_true', help="Perform full update of schedule while you're at it.")
   parser.add_argument('--version',
     action = 'version', 
     version = '%(prog)s ' + __version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
-  log.setLevel( getattr(logging, args.verbose.upper()) )
+  LOG.setLevel( args.loglevel )
 
   if args.semester is None or args.year is None:
 	  args.semester = None;
@@ -29,7 +30,7 @@ if __name__ == "__main__":
   LOG.handlers[0].setLevel( args.loglevel )
 
   
-  inst = WxChallenge()
+  inst = WxChallenge(full = args.full)
   inst.update_Semester( 
 	  semester = args.semester,
 	  year     = args.year,

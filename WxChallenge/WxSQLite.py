@@ -14,7 +14,7 @@ _sql_file = os.path.join(_dir, 'WxChall.sql');
 
 class WxSQLite( WxGrabber ):
   ##############################################################################
-  def __init__(self, *args, file = _sql_file, verbose = False, **kwargs):
+  def __init__(self, *args, file = _sql_file, full = False, verbose = False, **kwargs):
     super().__init__(*args, **kwargs)
 
     self.__log     = logging.getLogger( __name__ )
@@ -26,10 +26,13 @@ class WxSQLite( WxGrabber ):
 
     self._schedule = WxSchedule()
     self.sql_Load_Schedule()
-    
-    if len(self._schedule) == 0: 
+
+    if (len(self._schedule) == 0):
       self.__log.debug('No schedule found in database, downloading')
-      self.download_Schedule(all=True)
+      self.download_Schedule(full=True)
+    elif full:
+      self.__log.debug('Full schedule update...')
+      self.download_Schedule(full=True)
     elif self._schedule.date > self._schedule.latest:                                      # If the current _date is greater than the latest date in the schedule
       self.__log.debug('Schedule is old, updating...')
       self.download_Schedule( year = self._schedule.date.year )                         # Update the schedule
@@ -122,7 +125,9 @@ class WxSQLite( WxGrabber ):
       semester : Subset data by given semester
       year     : Subset data by given year
       models   : Default to True: gets category 8, set to False to NOT get data
+
     '''
+
     vars, vals = [], [];                                                        # Initialize lists for var names and values to search by in the SQL table
     if name is not None:                                                        # If name is NOT None
       if type(name) is not list and type(name) is not tuple:                    # Ensure that name is type list; checking if not list and not tuple
@@ -215,7 +220,7 @@ class WxSQLite( WxGrabber ):
     else:
       return None;
 
-  def download_Schedule(self, year = None, all = False):
+  def download_Schedule(self, year = None, full = False):
     """
     A method to get the current; or previous, forecase schedule.
     If year is used, assumed to be year of Fall semester, so will
@@ -223,22 +228,23 @@ class WxSQLite( WxGrabber ):
     
     """
 
-    if all:
+    if full:
       self._schedule.Clear();
       year = [y for y in range(2006, self._schedule.date.year)]
     
-    if year == self._schedule.date.year or year is None or all:                 # If year is None (i.e., no year input) OR all is True
+    if (year == self._schedule.date.year) or (year is None) or full:                 # If year is None (i.e., no year input) OR all is True
       season = self.getSchedule()                  # Set up url
       if season:
         self._schedule.Update( season.parse() );                                         # Parse the schedule
-      if not all:                                                               # If all is NOT set
+      if not full:                                                               # If full is NOT set
         self.sql_Update_Schedule( );
         return;
     elif not isinstance(year, list):                                            # Else, if year is not list instance
       year = [year];                                                            # Convert year to list
 
     for y in year:                                                              # Iterate over all years
-      syear, eyear = str(y)[-2:], str(y+1)[-2:];
+      #syear, eyear = str(y)[-2:], str(y+1)[-2:];
+      syear, eyear = y, y+1
       self.__log.debug( 'syear: {}, eyear: {}'.format(syear, eyear) )
       season = self.getSchedule(syear, eyear)
       if season:

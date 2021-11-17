@@ -7,8 +7,8 @@ from .utils import checkURL, getSemester;
 #from .parsers import parse_results_head, parse_results_body, parse_results_foot;
 
 class WxChallenge( WxSQLite ):
-  def __init__(self, verbose = False):
-    super().__init__(verbose=verbose)
+  def __init__(self, verbose = False, **kwargs):
+    super().__init__(verbose=verbose, **kwargs)
     self.__log        = logging.getLogger( __name__ )
     self._header      = None
     self._forecasters = None
@@ -34,8 +34,9 @@ class WxChallenge( WxSQLite ):
     """
 
     if semester is None or year is None:
-      year     = self.__schedule.date;
+      year     = self.__schedule.date
       semester = getSemester(self._schedule.date)
+
     tag = '{}:{}'.format(semester, year);                                       # Define tag for indexing _schedule
     if tag not in self._schedule:                                              # If the sem:year tag is NOT found in the schedule, raise an exception: should be able to fix later with try download of that time
       err = 'Error finding {} {} in the forecast schedule'.format(semester, year);
@@ -55,7 +56,7 @@ class WxChallenge( WxSQLite ):
         self.add_forecasts( forecasts )
         self.add_verification( res )
     return True;
-  ###########################################################################
+
   def update_Day(self, semester, year, identifier, day, schools = None):
     '''
     Name:

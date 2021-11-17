@@ -17,7 +17,7 @@ class WxGrabber(object):
     if not verify:
       warnings.warn('InsecureRequestWarning : You have chosen to allow insecure connection to the WxChallenge server')
       warnings.filterwarnings('ignore', message='Unverified HTTPS request')
-  ##############################################################################
+
   def getResults(self, semester, year, identifier, school, day):
     """
     Get BeautifulSoup parsed HTML results
@@ -39,6 +39,7 @@ class WxGrabber(object):
 
     if semester.lower() == 'spring':
       year = year-1
+
     identifier = identifier.lower()
     params = {'year'   : self._getYear(year, year+1), 
               'school' : school, 
@@ -48,7 +49,6 @@ class WxGrabber(object):
     soup = self._getHTML( self._RESULTS, params = params ) 
     return WxResults( soup, identifier )
 
-  ##############################################################################
   def getSchedule(self, sYear = None, eYear = None):
     """
     Get BeautifulSoup parsed HTML data for forecasting schedule
@@ -188,15 +188,23 @@ class WxResults( object ):
       self.city, self.state = city, state
 
   def _parseDate(self):
+
     tables = self._soup.find_all('table')
     if tables and len(tables) == 2:
       table = tables[1]
       rows  = table.find_all('tr')
       if rows:
-        col = rows[-1].find('td')
+        col = rows[0].find('td')
         if col:
-          self.date = datetime.datetime.strptime(col.text, '%Y%m%d').date()
+          ref  = datetime.datetime.strptime(col.text, '%Y%m%d')
+          ref += datetime.timedelta(days = len(rows)-1 )
+          self.date = ref.date()
           return
+        #col = rows[-1].find('td')
+        #if col:
+        #  print( col.text )
+        #  self.date = datetime.datetime.strptime(col.text, '%Y%m%d').date()
+        #  return
     self.__log.error('Failed to parse date from results page!')
 
   def _forecastTag( self, fc ):
@@ -380,7 +388,7 @@ class WxSeason( object ):
     else:                                                                       # Else
       eMonth, eDay = end[:2];                                                   # Get end month and day
 
-    sMonth = getMonthInt( eMonth ) 
+    sMonth = getMonthInt( sMonth ) 
     eMonth = getMonthInt( eMonth ) 
 
     year = self.years[0] if sMonth >= 7 else self.years[1]

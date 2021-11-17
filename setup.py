@@ -56,7 +56,7 @@ setup(
   author_email         = "krwodzicki@gmail.com",
   version              = main_ns['__version__'],
   packages             = setuptools.find_packages(),
-  install_requires     = [ "bs4", "lxml", "numpy", "scipy", "pandas", "openpyxl", "PyQt5" ],
+  install_requires     = [ "requests", "bs4", "lxml", "numpy", "scipy", "pandas", "openpyxl", "PyQt5" ],
   scripts              = ['bin/WxChall_Daily_Update',
                           'bin/WxChall_Semester_Update',
                           'bin/WxChall_Grades'],
