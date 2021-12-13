@@ -194,7 +194,8 @@ class WxResults( object ):
       table = tables[1]
       rows  = table.find_all('tr')
       if rows:
-        col = rows[0].find('td')
+        #col = rows[0].find('td')
+        col = rows[-1].find('td')
         if col:
           ref  = datetime.datetime.strptime(col.text, '%Y%m%d')
           ref += datetime.timedelta(days = len(rows)-1 )
@@ -234,15 +235,19 @@ class WxResults( object ):
     if len(cols) != len(WxData.resultsCols): return None
     fc   = {}                                                                   # Initialize data to empty list
     for i in range( len(cols) ):                                                # Iterate over all elements in the column data
-      if cols[i].isdigit():                                                     # If the element is a digit
+      cName = WxData.resultsCols[i]['name']                                     # Column name
+      if cName == 'name':
+        ele = cols[i]
+      elif cols[i].isdigit():                                                     # If the element is a digit
         ele = int(cols[i])                                                      # Set x to integer type of element
       else:                                                                     # Else
         try:                                                                    # Try to...
           ele = float(cols[i])                                                  # Convert element to float
         except:                                                                 # If convert to float fails
           ele = cols[i]                                                         # Keep as string
-      if WxData.resultsCols[i]['name'] == 'abs' and ele == '': ele = 0 
-      fc[ WxData.resultsCols[i]['name'] ] = ele 
+      if cName == 'abs' and ele == '': ele = 0 
+      self.__log.log( 5, f'Adding info to forecast - {cName} : {ele}' )
+      fc[ cName ] = ele 
     fc['date']       = self.date
     fc['identifier'] = self.identifier
     fc['day']        = self.day
