@@ -47,6 +47,7 @@ class WxGrabber(object):
               'day'    : day}
 
     soup = self._getHTML( self._RESULTS, params = params ) 
+
     return WxResults( soup, identifier )
 
   def getSchedule(self, sYear = None, eYear = None):
@@ -93,6 +94,7 @@ class WxGrabber(object):
 
   def _getYear(self, sYear, eYear):
     """Format year span to string for posting to php"""
+
     sYear = str(sYear)[-2:]                                                     # Get last 2 digits of sYear 
     eYear = str(eYear)[-2:]                                                     # Get last 2 digits of eYear
     return '{}-{}'.format(sYear, eYear)                                         # Return formatted year
@@ -114,6 +116,7 @@ class WxGrabber(object):
 
     kwargs['verify'] = self._verify                                             # Set verify based on class attribute
 
+    self.__log.debug( f'Attempting to dowload : {url}; using data : {kwargs}' )
     try:
       r = requests.post( url, **kwargs )                                        # Try to get request
     except Exception as err:                                                    # On exception
@@ -129,7 +132,8 @@ class WxGrabber(object):
     except Exception as err:                                                    # On exception
       self.__log.error( err )                                                     # Log error
       return None                                                               # Return None
-    
+
+    self.__log.debug( html ) 
     return BeautifulSoup(html, 'lxml')                                          # Parse the html data using the lxml format?
 
 
@@ -194,18 +198,12 @@ class WxResults( object ):
       table = tables[1]
       rows  = table.find_all('tr')
       if rows:
-        #col = rows[0].find('td')
         col = rows[-1].find('td')
         if col:
           ref  = datetime.datetime.strptime(col.text, '%Y%m%d')
-          ref += datetime.timedelta(days = len(rows)-1 )
           self.date = ref.date()
           return
-        #col = rows[-1].find('td')
-        #if col:
-        #  print( col.text )
-        #  self.date = datetime.datetime.strptime(col.text, '%Y%m%d').date()
-        #  return
+
     self.__log.error('Failed to parse date from results page!')
 
   def _forecastTag( self, fc ):

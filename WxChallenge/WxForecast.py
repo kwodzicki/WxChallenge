@@ -1,14 +1,14 @@
 # Import column naming data
 import logging
-import pandas;
-import numpy as np;
+import pandas
+import numpy as np
 
-from .data import forecastCols as cols;
-from .data import grd_df_cols, miss_allowed, fcst_per_city;
+from .data import forecastCols as cols
+from .data import grd_df_cols, miss_allowed, fcst_per_city
 
 required       = fcst_per_city - miss_allowed
-miss_penalize  = 100.0 / required;
-climo_penalize =  30.0 / required;
+miss_penalize  = 100.0 / required
+climo_penalize =  30.0 / required
 
 ##############################################################################
 def get_level_list(vals, levels):
@@ -21,11 +21,11 @@ def get_level_list(vals, levels):
 
   """
 
-  lvl_vals = [];
+  lvl_vals = []
   for i in range( len(vals.index.codes) ):
     if vals.index.names[i] not in levels: continue
     j = vals.index.codes[i][0]
-    lvl_vals.append( vals.index.levels[i][j] );
+    lvl_vals.append( vals.index.levels[i][j] )
   return lvl_vals;      
 
 def calc_error( fcst, verify ):
@@ -118,6 +118,7 @@ class Forecasts( pandas.DataFrame ):
        columns  : List of names for columns
        index    : List of columns to use a indices
     '''
+
     super().__init__(data, columns = columns);                   # Initialize the DataFrame
     self.__log = logging.getLogger(__name__)
     if index is not None:                                                       # If index is NOT None
@@ -126,12 +127,15 @@ class Forecasts( pandas.DataFrame ):
     self.grades = None;                                                         # Set grades attribute to None;
 
   def get_indices(self, values, check):
+
     '''get list of MultiIndex levels'''
+
     index = np.full( len(values[0]), True );
     for i in range( len(values) ): index = index & (values[i] == check[i]);
     return index; 
   ##############################################################################
   def get_lvl_vals(self, names = None):
+
     data = [];
     if names is None: names = self.index.names;
     for name in names: 
@@ -146,7 +150,6 @@ class Forecasts( pandas.DataFrame ):
     #return data, uniq;                                                          # Return all data AND the uniq values
 
 
-  ##############################################################################
   def calc_grades(self, model = None, verify = None, vacation = None):
     '''
     Purpose:
@@ -159,19 +162,21 @@ class Forecasts( pandas.DataFrame ):
       model    : Model data to compare to
       vacation : List of tuples with start and end dates of any vacations
     '''
-    gradeCol, gradeInd = self.gradeColInd();                                    # Get the column and index names to be used in the final grades DataFrame
-    grades = [];                                                                # Initialize a list to store grades during iteration
-    levels = ['school','year','semester','identifier'];                         # List of levels to sort by when iterating
-    stVal, stUNIQ = self.get_lvl_vals( levels );                                # Get complete list of levels and list of unique levels
+
+    gradeCol, gradeInd = self.gradeColInd()                                     # Get the column and index names to be used in the final grades DataFrame
+    grades = []                                                                 # Initialize a list to store grades during iteration
+    levels = ['school','year','semester','identifier']                          # List of levels to sort by when iterating
+    stVal, stUNIQ = self.get_lvl_vals( levels )                                 # Get complete list of levels and list of unique levels
 
     if model is not None:                                                       # If model is NOT None
-      mdVal, mdUNIQ = model.get_lvl_vals( levels[1:] );                         # Get complete list of levels and list of unique levels; don't use the school value
+      mdVal, mdUNIQ = model.get_lvl_vals( levels[1:] )                          # Get complete list of levels and list of unique levels; don't use the school value
       if len(stUNIQ) != len(mdUNIQ):                                            # If the length of unique values from the forecasts does NOT match that of the model
-        self.__log.warning( 'Forecaster and model data missmatch!' );                        # Print a message
-        model = None;                                                           # Disable model
+        self.__log.warning( 'Forecaster and model data missmatch!' )            # Print a message
+        model = None                                                            # Disable model
+
     for stid in stUNIQ:                                                         # Iterate over the unique levels
       locStat   = self.get_indices( stVal, stid )                               # Get location of unique station
-      fcData    = self.loc[ locStat ];                                          # Subset the forecasts using the location
+      fcData    = self.loc[ locStat ]                                           # Subset the forecasts using the location
       schConErr, schErrSTD = get_School_Norm( fcData, verify )
 
       if model is not None:                                                     # If model is NOT None
@@ -183,6 +188,7 @@ class Forecasts( pandas.DataFrame ):
         climatology = mdData.loc[ climatology ];                                # Subset climatology data for the location
       
       for fcstr in self.level_iter( 'name', fcData, ['CONSEN'] ):               # Iterate over all the forecasters for the station, skipping consensus
+        print( fcstr )
         numDays = len( fcstr );                                                 # Number of forecast days
         if numDays == 0: 
           self.__log.warning( 'No forecasts found!' );
@@ -196,7 +202,8 @@ class Forecasts( pandas.DataFrame ):
         miss    = fcstr['abs'].values;                                          # Cumulative absence array
         miss    = np.insert( (miss[1:] - miss[0:-1]), 0, miss[0]);              # Binary flag for if forecaster missed a forecast day
         nmiss   = fcstr['abs'].values.max();                                    # Get the number of missed forecasts; the maximum number from the abs column
-        
+        print( nmiss )
+ 
         if isinstance( vacation, (list, tuple,) ):                              # If there were vacations input
           for vaca in vacation:                                                 # Iterate over the vacations
             vacaID = ( (fcstr['date'].values >= vaca[0]) & 
@@ -205,9 +212,10 @@ class Forecasts( pandas.DataFrame ):
             if vacaN > 0:
               self.__log.debug( 'Found {} forecasts during break'.format(vacaN) )
               nmiss  -= vacaN;                                                  # Remove number of days of break from missed forecasts count
-              vacaN  -= sum( miss[vacaID] )              
+              vacaN  -= sum( miss[vacaID] )
         nFcsts  = numDays - nmiss;                                              # Number of forecasts submitted
-        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize;        # Compute absence deductions; 2 free misses before deductions
+        print()
+        abse    = -np.clip(nmiss-miss_allowed, 0, None) * miss_penalize         # Compute absence deductions; 2 free misses before deductions
         err     = fcstr['cum_err_total'].values[-1];                            # Get cumulative error value
 
         sch_con = np.clip( (schConErr - err) / schErrSTD, 0.0, None );          # Normalized difference between school error and forecaster error

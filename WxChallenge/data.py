@@ -86,6 +86,6 @@ class_tag = ['class_id_1', 'class_id_2'];
 
 # Column names for the grades dataframe
 grd_df_cols    = ['Forecasts', 'Absence', '# Vaca Forecasts', 'Climo', 'Consen. School', 'Consen. Ntnl', 'Total']
-miss_allowed   = 2;
-fcst_per_city  = 8;
+miss_allowed   = 2
+fcst_per_city  = 8
 break_bonus    = 0.25
